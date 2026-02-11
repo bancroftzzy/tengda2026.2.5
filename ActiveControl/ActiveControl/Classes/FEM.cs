@@ -217,5 +217,153 @@ namespace ActiveControl
             for (int i = 0; i < Nodes.Count(); i++)                       // 将位移数据赋予结点
                 Nodes[i].LoadDisp(Disp[i * 3], Disp[i * 3 + 1], Disp[i * 3 + 2]);
         }
+
+        /// <summary>
+        /// 【方法】非线性有限元求解（用于邓肯-张模型）
+        /// 使用切线刚度法迭代求解
+        /// </summary>
+        public static void SolveNonlinear(List<Element> Elements, ref List<Node> Nodes, Vector<double> Fs, 
+            List<int> ConstrainedDOFIndex, List<int> CM_Elem_SoilSpring, List<SoilLayer> SoilLayers,
+            double elevOfGround, double elevOfCollar, out Vector<double> Disp, out Vector<double> RForce,
+            int maxIterations = 50, double tolerance = 1e-4, double relaxationFactor = 0.5)
+        {
+            // 迭代参数
+            int iteration = 0;
+            double maxStiffnessChange = double.MaxValue;
+            
+            // 保存每个土弹簧的初始刚度和当前刚度
+            Dictionary<int, double> initialStiffness = new Dictionary<int, double>();
+            Dictionary<int, double> currentStiffness = new Dictionary<int, double>();
+            
+            // 记录初始刚度
+            foreach (int index in CM_Elem_SoilSpring)
+            {
+                if (Elements[index].isAlive)
+                {
+                    initialStiffness[index] = Elements[index].RealConstant.Area;
+                    currentStiffness[index] = Elements[index].RealConstant.Area;
+                }
+            }
+            
+            // 迭代求解
+            while (iteration < maxIterations && maxStiffnessChange > tolerance)
+            {
+                // 1. 用当前刚度求解
+                Solve(Elements, ref Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                
+                // 2. 更新土弹簧刚度
+                maxStiffnessChange = 0;
+                
+                foreach (int index in CM_Elem_SoilSpring)
+                {
+                    if (!Elements[index].isAlive)
+                        continue;
+                    
+                    Element elem = Elements[index];
+                    
+                    // 获取土弹簧所在的土层
+                    SoilLayer soilLayer = GetSoilLayerAtDepth(SoilLayers, elem.Left.Ny, elevOfCollar);
+                    
+                    if (soilLayer == null || !soilLayer.UseDuncanChang)
+                        continue;  // 如果不使用邓肯-张模型，跳过
+                    
+                    // 创建邓肯-张模型
+                    DuncanChangModel dcModel = DuncanChangModel.FromSoilLayer(soilLayer);
+                    
+                    // 计算深度（从地面算起）
+                    double depth = elevOfGround - elem.Left.Ny;
+                    if (depth < 0.1)
+                        depth = 0.1;
+                    
+                    // 估算围压（水平应力）
+                    double sigma3 = DuncanChangModel.EstimateConfiningStress(depth, soilLayer.Gamma, soilLayer.K0);
+                    
+                    // 计算位移
+                    double displacement = elem.Right.Ux - elem.Left.Ux;
+                    
+                    // 计算单元长度和面积
+                    double length = Math.Sqrt(Math.Pow(elem.Left.Nx - elem.Right.Nx, 2) + 
+                                             Math.Pow(elem.Left.Ny - elem.Right.Ny, 2));
+                    if (length < 1e-6)
+                        length = 1.0;  // 默认1m
+                    
+                    // 计算作用面积（单元高度 × 单位宽度）
+                    double elemHeight = Math.Abs(elem.Left.Ny - elem.Right.Ny);
+                    if (elemHeight < 1e-6)
+                        elemHeight = 0.2;  // 默认0.2m
+                    double area = elemHeight * 1.0;  // 单位宽度1m
+                    
+                    // 估算偏应力
+                    double deviatorStress = DuncanChangModel.EstimateDeviatorStress(
+                        displacement, currentStiffness[index], area);
+                    
+                    // 计算新的切线刚度
+                    double newStiffness = dcModel.GetSpringStiffness(sigma3, deviatorStress, area, length);
+                    
+                    // 使用松弛因子更新刚度（提高收敛性）
+                    double oldStiffness = currentStiffness[index];
+                    double updatedStiffness = relaxationFactor * newStiffness + (1 - relaxationFactor) * oldStiffness;
+                    
+                    // 限制刚度变化范围（防止过大波动）
+                    double minStiffness = initialStiffness[index] * 0.1;   // 最小为初始刚度的10%
+                    double maxStiffness = initialStiffness[index] * 2.0;   // 最大为初始刚度的200%
+                    
+                    if (updatedStiffness < minStiffness)
+                        updatedStiffness = minStiffness;
+                    if (updatedStiffness > maxStiffness)
+                        updatedStiffness = maxStiffness;
+                    
+                    // 更新刚度
+                    elem.RealConstant.Area = updatedStiffness;
+                    currentStiffness[index] = updatedStiffness;
+                    
+                    // 计算刚度变化率
+                    double stiffnessChange = Math.Abs(updatedStiffness - oldStiffness) / oldStiffness;
+                    if (stiffnessChange > maxStiffnessChange)
+                        maxStiffnessChange = stiffnessChange;
+                }
+                
+                iteration++;
+                
+                // 输出迭代信息（可选）
+                if (iteration % 10 == 0)
+                {
+                    Console.WriteLine($"  非线性迭代 {iteration}: 最大刚度变化率 = {maxStiffnessChange:E3}");
+                }
+            }
+            
+            // 最后一次求解，确保结果一致
+            Solve(Elements, ref Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+            
+            // 输出收敛信息
+            if (maxStiffnessChange <= tolerance)
+            {
+                Console.WriteLine($"  非线性求解收敛，迭代次数: {iteration}");
+            }
+            else
+            {
+                Console.WriteLine($"  警告：非线性求解未完全收敛，迭代次数: {iteration}，最大变化率: {maxStiffnessChange:E3}");
+            }
+        }
+
+        /// <summary>
+        /// 【辅助方法】根据深度获取土层
+        /// </summary>
+        private static SoilLayer GetSoilLayerAtDepth(List<SoilLayer> soilLayers, double elevation, double elevOfCollar)
+        {
+            double currentElev = elevOfCollar;
+            
+            foreach (SoilLayer layer in soilLayers)
+            {
+                currentElev -= layer.Thick;
+                if (elevation > currentElev)
+                {
+                    return layer;
+                }
+            }
+            
+            // 如果没找到，返回最后一层
+            return soilLayers.LastOrDefault();
+        }
     }
 }
