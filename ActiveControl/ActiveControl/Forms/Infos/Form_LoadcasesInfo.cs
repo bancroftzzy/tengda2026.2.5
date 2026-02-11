@@ -20,6 +20,12 @@ namespace ActiveControl.Forms
         {
             InitializeComponent();
             this.mf = mf;
+            
+            // 设置默认值
+            cbLoadcasesIsActive.SelectedIndex = 1;  // 默认"否"
+            cbIsRemoveSupport.SelectedIndex = 1;    // 默认"否"
+            cbIsAddSlab.SelectedIndex = 1;          // 默认"否"
+            
             outputLoadcasesInfoToLV();
         }
 
@@ -65,24 +71,58 @@ namespace ActiveControl.Forms
                 };
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    // 读文件前清空支撑信息
+                    // 读文件前清空工况信息
                     lvLoadcases.Items.Clear();
                     mf.Loadcases.Clear();
 
                     // 读文件流
                     StreamReader sr = new StreamReader(openFileDialog.FileName, Encoding.UTF8);
                     char[] deli = { '\t' };
-                    string line = sr.ReadLine();                             // 读去表头
-                    if (line == "工序编号\t开挖深度\t激活支撑")
+                    string line = sr.ReadLine();                             // 读取表头
+                    
+                    // 支持多种表头格式（旧格式和新格式）
+                    bool isOldFormat = (line == "工序编号\t开挖深度\t激活支撑");
+                    bool isNewFormat = line.Contains("拆除支撑") || line.Contains("回筑深度");
+                    
+                    if (isOldFormat || isNewFormat)
                     {
                         while (sr.Peek() > 0)
                         {
                             line = sr.ReadLine();
                             string[] unit = line.Split(deli, StringSplitOptions.RemoveEmptyEntries);
+                            
+                            // 读取基本参数
                             double ExcavationDepth = Convert.ToDouble(unit[1]);
-                            // 支持多种格式：中文"是"/"否"，英文"True"/"False"，以及布尔值字符串
-                            bool IsActiveSupport = unit[2] == "是" || unit[2].ToLower() == "true";
-                            Loadcase lc = new Loadcase(ExcavationDepth, IsActiveSupport);
+                            bool IsActiveSupport = unit[2] == "是" || unit[2] == "True" || unit[2].ToLower() == "true";
+                            
+                            // 读取扩展参数（拆换撑和回筑）
+                            bool IsRemoveSupport = false;
+                            int RemoveSupportIndex = -1;
+                            bool IsAddSlab = false;
+                            double SlabElevation = 0;
+                            double SlabThickness = 0;
+                            double BackfillDepth = 0;
+                            
+                            // 检查是否有扩展列
+                            if (unit.Length > 3)
+                            {
+                                IsRemoveSupport = unit[3] == "是" || unit[3] == "True" || unit[3].ToLower() == "true";
+                                if (unit.Length > 4)
+                                    RemoveSupportIndex = Convert.ToInt32(unit[4]);
+                                if (unit.Length > 5)
+                                    IsAddSlab = unit[5] == "是" || unit[5] == "True" || unit[5].ToLower() == "true";
+                                if (unit.Length > 6)
+                                    SlabElevation = Convert.ToDouble(unit[6]);
+                                if (unit.Length > 7)
+                                    SlabThickness = Convert.ToDouble(unit[7]);
+                                if (unit.Length > 8)
+                                    BackfillDepth = Convert.ToDouble(unit[8]);
+                            }
+                            
+                            Loadcase lc = new Loadcase(ExcavationDepth, IsActiveSupport,
+                                                       IsRemoveSupport, RemoveSupportIndex,
+                                                       IsAddSlab, SlabElevation, SlabThickness,
+                                                       BackfillDepth);
                             mf.Loadcases.Add(lc);
                         }
                         outputLoadcasesInfoToLV();
@@ -95,9 +135,9 @@ namespace ActiveControl.Forms
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                mf.PrintString("文件数据格式不正确，请重新选择。");
+                mf.PrintString("文件数据格式不正确：" + ex.Message);
             }
         }
 
@@ -113,9 +153,19 @@ namespace ActiveControl.Forms
             if (saveFileDialog.ShowDialog() == DialogResult.OK)
             {
                 StreamWriter sw = new StreamWriter(saveFileDialog.FileName, false, Encoding.UTF8);      // false 指若已存在同名文件则进行覆盖
-                sw.WriteLine("工序编号\t开挖深度\t激活支撑");                       // 写入表头
+                sw.WriteLine("编号\t开挖深度\t是否加支撑\t是否拆支撑\t拆除支撑编号\t是否浇筑顶板\t顶板标高\t顶板厚度\t回筑深度");                       // 写入表头
                 for (int i = 0; i < mf.Loadcases.Count(); i++)
-                    sw.WriteLine((i + 1).ToString("0") + "\t" + mf.Loadcases[i].ExcavationDepth + "\t" + (mf.Loadcases[i].IsActiveSupport ? "是" : "否"));
+                {
+                    sw.WriteLine((i + 1).ToString("0") + "\t" + 
+                                mf.Loadcases[i].ExcavationDepth + "\t" + 
+                                (mf.Loadcases[i].IsActiveSupport ? "True" : "False") + "\t" +
+                                (mf.Loadcases[i].IsRemoveSupport ? "True" : "False") + "\t" +
+                                mf.Loadcases[i].RemoveSupportIndex + "\t" +
+                                (mf.Loadcases[i].IsAddSlab ? "True" : "False") + "\t" +
+                                mf.Loadcases[i].SlabElevation + "\t" +
+                                mf.Loadcases[i].SlabThickness + "\t" +
+                                mf.Loadcases[i].BackfillDepth);
+                }
                 sw.Close();
                 mf.PrintString("工况数据写入成功！文件目录：\r\n" + saveFileDialog.FileName);
             }
@@ -128,20 +178,28 @@ namespace ActiveControl.Forms
                 // 读取输入栏数据
                 double ExcavationDepth = double.Parse(tbLoadcasesEcvDepth.Text, System.Globalization.CultureInfo.InvariantCulture);
                 bool IsActiveSupport = cbLoadcasesIsActive.Text == "是";
+                bool IsRemoveSupport = cbIsRemoveSupport.Text == "是";
+                int RemoveSupportIndex = int.Parse(tbRemoveSupportIndex.Text);
+                bool IsAddSlab = cbIsAddSlab.Text == "是";
+                double SlabElevation = double.Parse(tbSlabElevation.Text, System.Globalization.CultureInfo.InvariantCulture);
+                double SlabThickness = double.Parse(tbSlabThickness.Text, System.Globalization.CultureInfo.InvariantCulture);
+                double BackfillDepth = double.Parse(tbBackfillDepth.Text, System.Globalization.CultureInfo.InvariantCulture);
 
-                // 并入土层信息
-                Loadcase lc = new Loadcase(ExcavationDepth, IsActiveSupport);
+                // 并入工况信息
+                Loadcase lc = new Loadcase(ExcavationDepth, IsActiveSupport,
+                                           IsRemoveSupport, RemoveSupportIndex,
+                                           IsAddSlab, SlabElevation, SlabThickness,
+                                           BackfillDepth);
                 mf.Loadcases.Insert(lvLoadcases.SelectedIndices[0], lc);
                 outputLoadcasesInfoToLV();
 
                 // 输入栏清空
                 tbLoadcasesEcvDepth.Text = "";
-                //cbLoadcasesIsActive.Text = "";
                 mf.PrintString("工况信息插入成功！");
             }
             catch (Exception ex)
             {
-                mf.PrintString(ex.Message);
+                mf.PrintString("输入数据格式错误：" + ex.Message);
             }
         }
 
@@ -152,20 +210,28 @@ namespace ActiveControl.Forms
                 // 读取输入栏数据
                 double ExcavationDepth = double.Parse(tbLoadcasesEcvDepth.Text, System.Globalization.CultureInfo.InvariantCulture);
                 bool IsActiveSupport = cbLoadcasesIsActive.Text == "是";
+                bool IsRemoveSupport = cbIsRemoveSupport.Text == "是";
+                int RemoveSupportIndex = int.Parse(tbRemoveSupportIndex.Text);
+                bool IsAddSlab = cbIsAddSlab.Text == "是";
+                double SlabElevation = double.Parse(tbSlabElevation.Text, System.Globalization.CultureInfo.InvariantCulture);
+                double SlabThickness = double.Parse(tbSlabThickness.Text, System.Globalization.CultureInfo.InvariantCulture);
+                double BackfillDepth = double.Parse(tbBackfillDepth.Text, System.Globalization.CultureInfo.InvariantCulture);
 
-                // 并入土层信息
-                Loadcase lc = new Loadcase(ExcavationDepth, IsActiveSupport);
+                // 并入工况信息
+                Loadcase lc = new Loadcase(ExcavationDepth, IsActiveSupport,
+                                           IsRemoveSupport, RemoveSupportIndex,
+                                           IsAddSlab, SlabElevation, SlabThickness,
+                                           BackfillDepth);
                 mf.Loadcases.Add(lc);
                 outputLoadcasesInfoToLV();
 
                 // 输入栏清空
                 tbLoadcasesEcvDepth.Text = "";
-                //cbLoadcasesIsActive.Text = "";
                 mf.PrintString("工况信息追加成功！");
             }
             catch (Exception ex)
             {
-                mf.PrintString(ex.Message);
+                mf.PrintString("输入数据格式错误：" + ex.Message);
             }
         }
 
@@ -177,7 +243,13 @@ namespace ActiveControl.Forms
                 ListViewItem li = new ListViewItem();
                 li.SubItems[0].Text = (i + 1).ToString("0");
                 li.SubItems.Add(mf.Loadcases[i].ExcavationDepth.ToString("0.00"));
-                li.SubItems.Add(mf.Loadcases[i].IsActiveSupport.ToString());
+                li.SubItems.Add(mf.Loadcases[i].IsActiveSupport ? "是" : "否");
+                li.SubItems.Add(mf.Loadcases[i].IsRemoveSupport ? "是" : "否");
+                li.SubItems.Add(mf.Loadcases[i].RemoveSupportIndex.ToString());
+                li.SubItems.Add(mf.Loadcases[i].IsAddSlab ? "是" : "否");
+                li.SubItems.Add(mf.Loadcases[i].SlabElevation.ToString("0.00"));
+                li.SubItems.Add(mf.Loadcases[i].SlabThickness.ToString("0.00"));
+                li.SubItems.Add(mf.Loadcases[i].BackfillDepth.ToString("0.00"));
                 lvLoadcases.Items.Add(li);
             }
         }

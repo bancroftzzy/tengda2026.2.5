@@ -530,7 +530,7 @@ namespace ActiveControl.Forms
         }
         private void Construction()
         {
-            // 开挖操作
+            // 1. 开挖操作
             if (mf.Loadcases[Loadcase.CurLCNo].ExcavationDepth > 1e-6)
             {
                 Loadcase.CurElev -= mf.Loadcases[Loadcase.CurLCNo].ExcavationDepth;            // 当前地面标高
@@ -550,7 +550,22 @@ namespace ActiveControl.Forms
                             if (mf.Elements[index].Left.Ny > cElev)
                             {
                                 // 刚度Ks = 土层厚度a × 水平宽度b1 × 水平抗力比例系数m × 土层到地面距离z，注意单位换算
-                                mf.Elements[index].RealConstant.Area = (mf.Elements[index - 1].Left.Ny - mf.Elements[index].Left.Ny) * 1.0 * j.M * 1e6 * (Loadcase.CurElev - mf.Elements[index].Left.Ny);
+                                // 找到围护墙上当前节点的上方相邻节点,计算单元长度
+                                double currentY = mf.Elements[index].Right.Ny;
+                                double upperY = currentY;
+                                // 在围护墙节点中找到紧邻上方的节点
+                                foreach (int ecsIndex in CM_Node_ECS)
+                                {
+                                    if (mf.Nodes[ecsIndex].Ny > currentY)
+                                    {
+                                        if (upperY == currentY || mf.Nodes[ecsIndex].Ny < upperY)
+                                        {
+                                            upperY = mf.Nodes[ecsIndex].Ny;
+                                        }
+                                    }
+                                }
+                                double elemLength = upperY - currentY;
+                                mf.Elements[index].RealConstant.Area = elemLength * 1.0 * j.M * 1e6 * (Loadcase.CurElev - mf.Elements[index].Left.Ny);
                                 break;
                             }
                         }
@@ -559,7 +574,7 @@ namespace ActiveControl.Forms
                 Loadcase.ExcCount++;
             }
 
-            // 激活支撑并设置初应变
+            // 2. 激活支撑并设置初应变
             if (mf.Loadcases[Loadcase.CurLCNo].IsActiveSupport == true)
             {
                 mf.Elements[CM_Elem_Supports[Loadcase.ActSupCount]].isAlive = true;
@@ -568,6 +583,149 @@ namespace ActiveControl.Forms
                 if (mf.Supports[Loadcase.ActSupCount - 1].AdjAble == true)
                     Loadcase.AdjSupIndex.Add(Loadcase.ActSupCount - 1);
             }
+            
+            // 3. 浇筑顶板（新增功能）
+            if (mf.Loadcases[Loadcase.CurLCNo].IsAddSlab == true)
+            {
+                double slabElev = mf.Loadcases[Loadcase.CurLCNo].SlabElevation;
+                double slabThick = mf.Loadcases[Loadcase.CurLCNo].SlabThickness;
+                
+                // 创建顶板梁单元
+                Node leftNode = Node.SelectNodeByLoc(mf.Nodes, 0, slabElev);
+                Node rightNode = Node.SelectNodeByLoc(mf.Nodes, -mf.LengthOfSupports, slabElev);
+                
+                if (leftNode != null && rightNode != null)
+                {
+                    // 定义顶板实常数
+                    RealConstant slabRC = new RealConstant(
+                        RealConstants.Count() + 1,
+                        1.0 * slabThick,                        // 面积
+                        1.0 * Math.Pow(slabThick, 3) / 12.0    // 惯性矩
+                    );
+                    RealConstants.Add(slabRC);
+                    
+                    // 创建顶板梁单元
+                    Material Concrete = new Material("Concrete", 31.5e9, 2400);
+                    Element slabElem = new Element(
+                        mf.Elements.Count() + 1,
+                        leftNode,
+                        rightNode,
+                        Concrete,
+                        "Beam",
+                        slabRC
+                    );
+                    mf.Elements.Add(slabElem);
+                    Loadcase.SlabElemIndex.Add(mf.Elements.Count() - 1);
+                    
+                    mf.PrintString($"浇筑顶板：标高{slabElev:F2}m，厚度{slabThick:F2}m");
+                }
+                else
+                {
+                    mf.PrintString($"警告：无法在标高{slabElev:F2}m处找到节点，顶板浇筑失败！");
+                }
+            }
+            
+            // 4. 拆除支撑（新增功能 - 增量法）
+            if (mf.Loadcases[Loadcase.CurLCNo].IsRemoveSupport == true)
+            {
+                int removeIndex = mf.Loadcases[Loadcase.CurLCNo].RemoveSupportIndex;
+                
+                if (removeIndex >= 0 && removeIndex < CM_Elem_Supports.Count())
+                {
+                    int supportElemIndex = CM_Elem_Supports[removeIndex];
+                    
+                    // 检查支撑是否激活
+                    if (mf.Elements[supportElemIndex].isAlive)
+                    {
+                        // 4.1 先求解一次，获取当前支撑抗力
+                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        mf.Elements[supportElemIndex].getNodalForce();
+                        double supportForce = -mf.Elements[supportElemIndex].jFx;  // 支撑轴力（正值为压力）
+                        
+                        // 4.2 钝化支撑单元
+                        mf.Elements[supportElemIndex].isAlive = false;
+                        mf.Elements[supportElemIndex].RealConstant.IniStrn = 0;
+                        
+                        // 4.3 在围护墙对应位置施加反向荷载（关键步骤）
+                        int nodeIndex = mf.Elements[supportElemIndex].Right.No - 1;
+                        Fs[nodeIndex * 3] += -supportForce;  // X方向反向荷载
+                        
+                        mf.PrintString($"拆除第{removeIndex + 1}道支撑，支撑抗力{supportForce / 1e3:F2} kN，施加反向荷载{-supportForce / 1e3:F2} kN");
+                    }
+                    else
+                    {
+                        mf.PrintString($"警告：第{removeIndex + 1}道支撑未激活，无法拆除！");
+                    }
+                }
+                else
+                {
+                    mf.PrintString($"错误：支撑索引{removeIndex}超出范围！");
+                }
+            }
+            
+            // 5. 回筑操作（新增功能 - 增量法）
+            if (mf.Loadcases[Loadcase.CurLCNo].BackfillDepth < -1e-6)
+            {
+                double backfillDepth = -mf.Loadcases[Loadcase.CurLCNo].BackfillDepth;  // 转为正值
+                Loadcase.CurElev += backfillDepth;  // 开挖面标高上升
+                
+                mf.PrintString($"回筑{backfillDepth:F2}m，当前开挖面标高{Loadcase.CurElev:F2}m");
+                
+                // 激活被回填区域的土弹簧
+                foreach (int index in CM_Elem_SoilSpring)
+                {
+                    if (mf.Elements[index].Left.Ny <= Loadcase.CurElev && !mf.Elements[index].isAlive)
+                    {
+                        // 激活土弹簧
+                        mf.Elements[index].isAlive = true;
+                        
+                        // 重新计算土弹簧刚度（考虑回填土特性）
+                        double cElev = mf.ElevOfCollar;
+                        foreach (SoilLayer j in mf.SoilLayers)
+                        {
+                            cElev -= j.Thick;
+                            if (mf.Elements[index].Left.Ny > cElev)
+                            {
+                                // 回填土刚度 = 原状土刚度 × 压实系数（这里假设压实系数为0.8）
+                                double compactionFactor = 0.8;
+                                // 找到围护墙上当前节点的上方相邻节点,计算单元长度
+                                double currentY = mf.Elements[index].Right.Ny;
+                                double upperY = currentY;
+                                foreach (int ecsIndex in CM_Node_ECS)
+                                {
+                                    if (mf.Nodes[ecsIndex].Ny > currentY)
+                                    {
+                                        if (upperY == currentY || mf.Nodes[ecsIndex].Ny < upperY)
+                                        {
+                                            upperY = mf.Nodes[ecsIndex].Ny;
+                                        }
+                                    }
+                                }
+                                double elemLength = upperY - currentY;
+                                double ks = elemLength * 1.0 * 
+                                           j.M * 1e6 * (Loadcase.CurElev - mf.Elements[index].Left.Ny) * compactionFactor;
+                                mf.Elements[index].RealConstant.Area = ks;
+                                
+                                // 计算回填土压力增量（主动土压力）
+                                double Ka = Math.Pow(Math.Tan((45 - j.Phi / 2) * Math.PI / 180), 2);
+                                double depth = Loadcase.CurElev - mf.Elements[index].Left.Ny;
+                                double P_backfill = Ka * j.Gamma * 1e3 * depth;
+                                
+                                // 通过初应变施加回填土压力
+                                // 注意：这里是增量，不是总量
+                                if (mf.Elements[index].RealConstant.Area > 1e-6)
+                                {
+                                    mf.Elements[index].RealConstant.IniStrn = P_backfill / 
+                                        (mf.Elements[index].Material.Emodulus * mf.Elements[index].RealConstant.Area);
+                                }
+                                
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            
             for (int i = 0; i < Loadcase.ActSupCount; i++)
                 mf.IniForceSum[i, Loadcase.CurLCNo] = mf.Elements[CM_Elem_Supports[i]].RealConstant.IniStrn;
 
