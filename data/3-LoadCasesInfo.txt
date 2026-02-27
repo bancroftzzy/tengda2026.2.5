@@ -1,0 +1,15 @@
+﻿编号	开挖深度	是否加支撑	是否拆支撑	拆除支撑编号	是否浇筑顶板	顶板标高	顶板厚度	回筑深度
+1	0	False	False	-1	False	0	0	0
+2	1	False	False	-1	False	0	0	0
+3	0	True	False	-1	False	0	0	0
+4	4.3	False	False	-1	False	0	0	0
+5	0	True	False	-1	False	0	0	0
+6	3.8	False	False	-1	False	0	0	0
+7	0	True	False	-1	False	0	0	0
+8	3.6	False	False	-1	False	0	0	0
+9	0	True	False	-1	False	0	0	0
+10	3.4	False	False	-1	False	0	0	0
+11	0	True	False	-1	False	0	0	0
+12	3	False	False	-1	False	0	0	0
+13	0	True	False	-1	False	0	0	0
+14	2.56	False	False	-1	False	0	0	0

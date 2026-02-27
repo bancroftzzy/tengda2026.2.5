@@ -108,6 +108,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Classes\DuncanChangModel.cs" />
     <Compile Include="Classes\Element.cs" />
     <Compile Include="Classes\FEM.cs" />
     <Compile Include="Classes\Loadcase.cs" />

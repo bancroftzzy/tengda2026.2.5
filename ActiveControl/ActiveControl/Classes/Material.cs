@@ -10,8 +10,9 @@ namespace ActiveControl
     public partial class Material
     {
         public string Name;
-        public double Emodulus;   // 弹性模量  
-        public double Density;    // 密度  
+        public double Emodulus;      // 弹性模量  
+        public double Density;       // 密度  
+        public double PoissonRatio;  // 泊松比（用于壳单元等）
 
         // 构造函数  
         public Material(string name, double E, double D)

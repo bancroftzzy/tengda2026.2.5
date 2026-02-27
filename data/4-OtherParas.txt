@@ -1,0 +1,11 @@
+﻿变量名	值
+LengthOfECS	46.00
+ThickOfECS	1.00
+MaxMommentOfECS1	2684.00
+MaxMommentOfECS2	3704.00
+MaxShearForceOfECS	3132.00
+LengthOfSupports	12.95
+ElevOfCollar	3.24
+ElevOfGround	3.70
+GroundLoad	20.00
+EpsDefor	8.00e-4
