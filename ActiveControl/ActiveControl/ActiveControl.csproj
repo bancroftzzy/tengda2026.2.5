@@ -112,6 +112,7 @@
     <Compile Include="Classes\Element.cs" />
     <Compile Include="Classes\FEM.cs" />
     <Compile Include="Classes\Loadcase.cs" />
+    <Compile Include="Classes\LocalLoad.cs" />
     <Compile Include="Forms\Form_Calculate.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -123,6 +124,12 @@
     </Compile>
     <Compile Include="Forms\Infos\Form_LoadcasesInfo.Designer.cs">
       <DependentUpon>Form_LoadcasesInfo.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Forms\Infos\Form_LocalLoadsInfo.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\Infos\Form_LocalLoadsInfo.Designer.cs">
+      <DependentUpon>Form_LocalLoadsInfo.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\Form_Main.cs">
       <SubType>Form</SubType>
@@ -179,6 +186,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\Infos\Form_LoadcasesInfo.resx">
       <DependentUpon>Form_LoadcasesInfo.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Forms\Infos\Form_LocalLoadsInfo.resx">
+      <DependentUpon>Form_LocalLoadsInfo.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Forms\Form_Main.resx">
       <DependentUpon>Form_Main.cs</DependentUpon>
@@ -250,6 +260,7 @@
     <Content Include="bin\Debug\ImportData\2-SupportsInfo.txt" />
     <Content Include="bin\Debug\ImportData\3-LoadCasesInfo.txt" />
     <Content Include="bin\Debug\ImportData\4-OtherParas.txt" />
+    <Content Include="bin\Debug\ImportData\5-LocalLoadsInfo.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -41,6 +41,7 @@
             this.btnInputSoilLayersInfo = new System.Windows.Forms.ToolStripMenuItem();
             this.btnInputSupportsInfo = new System.Windows.Forms.ToolStripMenuItem();
             this.btnInputLoadcasesInfo = new System.Windows.Forms.ToolStripMenuItem();
+            this.btnInputLocalLoadsInfo = new System.Windows.Forms.ToolStripMenuItem();
             this.btnInputOtherInfo = new System.Windows.Forms.ToolStripMenuItem();
             this.数据导出ToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.btnOutputAll = new System.Windows.Forms.ToolStripMenuItem();
@@ -131,6 +132,7 @@
             this.btnInputSoilLayersInfo,
             this.btnInputSupportsInfo,
             this.btnInputLoadcasesInfo,
+            this.btnInputLocalLoadsInfo,
             this.btnInputOtherInfo});
             this.msInputData.Font = new System.Drawing.Font("微软雅黑", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.msInputData.Name = "msInputData";
@@ -157,6 +159,13 @@
             this.btnInputLoadcasesInfo.Size = new System.Drawing.Size(166, 28);
             this.btnInputLoadcasesInfo.Text = "施工数据";
             this.btnInputLoadcasesInfo.Click += new System.EventHandler(this.btnInputLoadcasesInfo_Click);
+            // 
+            // btnInputLocalLoadsInfo
+            // 
+            this.btnInputLocalLoadsInfo.Name = "btnInputLocalLoadsInfo";
+            this.btnInputLocalLoadsInfo.Size = new System.Drawing.Size(166, 28);
+            this.btnInputLocalLoadsInfo.Text = "局部荷载";
+            this.btnInputLocalLoadsInfo.Click += new System.EventHandler(this.btnInputLocalLoadsInfo_Click);
             // 
             // btnInputOtherInfo
             // 
@@ -402,6 +411,7 @@
         private System.Windows.Forms.ToolStripMenuItem msInputData;
         private System.Windows.Forms.ToolStripMenuItem btnInputSupportsInfo;
         private System.Windows.Forms.ToolStripMenuItem btnInputLoadcasesInfo;
+        private System.Windows.Forms.ToolStripMenuItem btnInputLocalLoadsInfo;
         private System.Windows.Forms.ToolStripMenuItem btnInputOtherInfo;
         private System.Windows.Forms.ToolStripMenuItem btnInputSoilLayersInfo;
         private System.Windows.Forms.ToolStripMenuItem 数据导出ToolStripMenuItem;

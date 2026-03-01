@@ -473,6 +473,138 @@ namespace ActiveControl.Forms
                     }
                 }
             }
+            // 局部荷载（滑动面传递法）
+            if (mf.LocalLoads.Count > 0)
+            {
+                mf.PrintString($"开始计算局部荷载，共 {mf.LocalLoads.Count} 个");
+                
+                foreach (LocalLoad load in mf.LocalLoads)
+                {
+                    mf.PrintString($"计算局部荷载 {load.No}");
+                    
+                    double ecsBottom = mf.ElevOfGround - mf.LengthOfECS;
+                    
+                    // 追踪荷载近端滑动面，确定 z1
+                    double a_near = load.DistToECS;
+                    double cElev = mf.ElevOfCollar;
+                    double z1 = -999;
+                    bool z1_out_of_range = false;
+                    
+                    foreach (SoilLayer soil in mf.SoilLayers)
+                    {
+                        double phi = soil.Phi;
+                        double beta = (45 + phi / 2) * Math.PI / 180;
+                        double layerThick = soil.Thick;
+                        double delta_a = layerThick / Math.Tan(beta);
+                        
+                        if (a_near < delta_a)
+                        {
+                            double depth_in_layer = a_near * Math.Tan(beta);
+                            z1 = cElev - depth_in_layer;
+                            break;
+                        }
+                        else
+                        {
+                            a_near -= delta_a;
+                            cElev -= layerThick;
+                            
+                            if (cElev <= ecsBottom)
+                            {
+                                z1_out_of_range = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (z1_out_of_range || z1 < ecsBottom)
+                    {
+                        mf.PrintString($"  警告：局部荷载 {load.No} 距离太远，影响深度超出围护结构范围");
+                        continue;
+                    }
+                    
+                    // 追踪荷载远端滑动面，确定 z2
+                    double a_far = load.DistToECS + load.Width;
+                    cElev = mf.ElevOfCollar;
+                    double z2 = -999;
+                    bool z2_out_of_range = false;
+                    
+                    foreach (SoilLayer soil in mf.SoilLayers)
+                    {
+                        double phi = soil.Phi;
+                        double beta = (45 + phi / 2) * Math.PI / 180;
+                        double layerThick = soil.Thick;
+                        double delta_a = layerThick / Math.Tan(beta);
+                        
+                        if (a_far < delta_a)
+                        {
+                            double depth_in_layer = a_far * Math.Tan(beta);
+                            z2 = cElev - depth_in_layer;
+                            break;
+                        }
+                        else
+                        {
+                            a_far -= delta_a;
+                            cElev -= layerThick;
+                            
+                            if (cElev <= ecsBottom)
+                            {
+                                z2_out_of_range = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (z2_out_of_range || z2 < ecsBottom)
+                    {
+                        z2 = ecsBottom;
+                        mf.PrintString($"  提示：局部荷载 {load.No} 远端超出围护结构，影响范围截断到底部");
+                    }
+                    
+                    mf.PrintString($"  影响标高: {z1:F2}m ~ {z2:F2}m");
+                    
+                    // 遍历围护结构单元，施加荷载
+                    for (int i = 0; i < CM_Elem_ECS.Count; i++)
+                    {
+                        double node_i_elev = mf.Nodes[i].Ny;
+                        double node_j_elev = mf.Nodes[i + 1].Ny;
+                        
+                        // 判断单元是否在影响范围内
+                        if (node_i_elev <= z1 && node_j_elev >= z2)
+                        {
+                            // 找到单元所在的土层
+                            double cElev_temp = mf.ElevOfCollar;
+                            double elem_mid_elev = (node_i_elev + node_j_elev) / 2;
+                            
+                            foreach (SoilLayer soil in mf.SoilLayers)
+                            {
+                                double layer_top = cElev_temp;
+                                double layer_bottom = cElev_temp - soil.Thick;
+                                
+                                if (elem_mid_elev <= layer_top && elem_mid_elev > layer_bottom)
+                                {
+                                    double phi = soil.Phi;
+                                    double Ka = Math.Pow(Math.Tan((45 - phi / 2) * Math.PI / 180), 2);
+                                    double delta_sigma_h = Ka * load.LocalGroundLoad * 1e3;
+                                    
+                                    double elem_height = node_i_elev - node_j_elev;
+                                    double force_i = delta_sigma_h * elem_height / 2;
+                                    double force_j = delta_sigma_h * elem_height / 2;
+                                    
+                                    Fs[i * 3] += force_i;
+                                    Fs[(i + 1) * 3] += force_j;
+                                    
+                                    break;
+                                }
+                                
+                                cElev_temp -= soil.Thick;
+                            }
+                        }
+                    }
+                }
+            }
+
+
+
             Vector<double> Fg = FEM.GetFg(mf.Elements, Fs);          // 生成总荷载向量
 
             //// 在列表中显示荷载信息

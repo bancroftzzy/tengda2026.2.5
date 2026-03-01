@@ -126,6 +126,46 @@ namespace ActiveControl
                 PrintString("工况数据读取失败，请进入工况数据输入窗体手动输入。");
             }
 
+            // 尝试读取局部荷载数据
+            try
+            {
+                path = Application.StartupPath + "\\ImportData\\5-LocalLoadsInfo.txt";
+                if (File.Exists(path))
+                {
+                    StreamReader sr5 = new StreamReader(path, Encoding.UTF8);
+                    line = sr5.ReadLine();
+                    if (line == "荷载编号\t距围护结构距离(m)\t荷载宽度(m)\t局部地面荷载(kPa)")
+                    {
+                        while (sr5.Peek() > 0)
+                        {
+                            line = sr5.ReadLine();
+                            unit = line.Split(deli, StringSplitOptions.RemoveEmptyEntries);
+                            if (unit.Length >= 4)  // 确保有足够的列
+                            {
+                                double DistToECS = Convert.ToDouble(unit[1]);
+                                double Width = Convert.ToDouble(unit[2]);
+                                double LocalGroundLoad = Convert.ToDouble(unit[3]);
+                                LocalLoad ll = new LocalLoad(DistToECS, Width, LocalGroundLoad);
+                                LocalLoads.Add(ll);
+                            }
+                        }
+                        sr5.Close();
+                        rtbOutputWindow.Text += ">> " + System.DateTime.Now.ToString() + "  局部荷载数据读取成功！共 " + LocalLoads.Count.ToString() + " 个\r\n";
+                    }
+                    else
+                    {
+                        sr5.Close();
+                        PrintString("5-LocalLoadsInfo.txt文件格式不正确。");
+                    }
+                }
+                else
+                    PrintString("5-LocalLoadsInfo.txt文件不存在，如需添加局部荷载，请进入局部荷载数据输入窗体手动输入。");
+            }
+            catch
+            {
+                PrintString("局部荷载数据读取失败，请进入局部荷载数据输入窗体手动输入。");
+            }
+
             // 其他数据
             try
             {
@@ -173,6 +213,7 @@ namespace ActiveControl
         public List<Support> Supports = new List<Support>();
         public List<Loadcase> Loadcases = new List<Loadcase>();
         public List<SoilLayer> SoilLayers = new List<SoilLayer>();
+        public List<LocalLoad> LocalLoads = new List<LocalLoad>();
 
         // 内力包络
         public Vector<double> UxMax;
@@ -1423,6 +1464,13 @@ namespace ActiveControl
             Form_SoilLayersInfo fm = new Form_SoilLayersInfo(this) { Owner = this };
             fm.ShowDialog();
         }
+
+        private void btnInputLocalLoadsInfo_Click(object sender, EventArgs e)       // 【按钮】弹出局部荷载信息输入子窗口
+        {
+            Form_LocalLoadsInfo fm = new Form_LocalLoadsInfo(this) { Owner = this };
+            fm.ShowDialog();
+        }
+
         private void btnInputOtherInfo_Click(object sender, EventArgs e)            // 【按钮】弹出其他信息输入子窗口
         {
             Form_OtherInfo fm = new Form_OtherInfo(this) { Owner = this };
