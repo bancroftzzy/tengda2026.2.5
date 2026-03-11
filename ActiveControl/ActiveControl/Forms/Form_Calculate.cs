@@ -327,6 +327,118 @@ namespace ActiveControl.Forms
             }
             foreach (Support i in mf.Supports)                                           // 支撑位置节点
                 mf.Nodes.Add(new Node(mf.Nodes.Count() + 1, 0.0, mf.ElevOfGround - i.DistToGround));
+            
+            // ========== 新增：局部荷载影响位置节点 ==========
+            if (mf.LocalLoads.Count > 0)                                                 // 判断是否有局部荷载
+            {
+                mf.PrintString($"开始计算局部荷载影响位置，共 {mf.LocalLoads.Count} 个局部荷载");
+                
+                foreach (LocalLoad load in mf.LocalLoads)                                // 局部荷载影响位置节点
+                {
+                   
+                    double ecsBottom = mf.ElevOfGround - mf.LengthOfECS;
+                    
+                    // 计算近端影响深度 z1
+                    double a_near = load.DistToECS;
+                    double cElev = mf.ElevOfCollar;
+                    double z1 = -999;
+                    bool z1_valid = true;
+                    
+                    foreach (SoilLayer soil in mf.SoilLayers)
+                    {
+                        double phi = soil.Phi;
+                        double beta = (45 + phi / 2) * Math.PI / 180;
+                        double layerThick = soil.Thick;
+                        double delta_a = layerThick / Math.Tan(beta);
+                        
+                        if (a_near < delta_a)
+                        {
+                            double depth_in_layer = a_near * Math.Tan(beta);
+                            z1 = cElev - depth_in_layer;
+                            break;
+                        }
+                        else
+                        {
+                            a_near -= delta_a;
+                            cElev -= layerThick;
+                            
+                            if (cElev <= ecsBottom)
+                            {
+                                z1_valid = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 如果z1有效且在围护结构范围内，添加节点
+                    if (z1_valid && z1 > ecsBottom && z1 < mf.ElevOfGround)
+                    {
+                        load.Z1 = z1; //保存z1
+                        mf.Nodes.Add(new Node(mf.Nodes.Count() + 1, 0.0, z1));
+                        mf.PrintString($"    近端影响深度 z1 = {z1:F3}m，已添加节点");
+                    }
+                    else if (!z1_valid || z1 <= ecsBottom)
+                    {
+                        mf.PrintString($"    警告：局部荷载 {load.No} 近端距离太远，影响深度超出围护结构范围");
+                    }
+                    
+                    // 计算远端影响深度 z2
+                    double a_far = load.DistToECS + load.Width;
+                    cElev = mf.ElevOfCollar;
+                    double z2 = -999;
+                    bool z2_valid = true;
+                    
+                    foreach (SoilLayer soil in mf.SoilLayers)
+                    {
+                        double phi = soil.Phi;
+                        double beta = (45 + phi / 2) * Math.PI / 180;
+                        double layerThick = soil.Thick;
+                        double delta_a = layerThick / Math.Tan(beta);
+                        
+                        if (a_far < delta_a)
+                        {
+                            double depth_in_layer = a_far * Math.Tan(beta);
+                            z2 = cElev - depth_in_layer;
+                            break;
+                        }
+                        else
+                        {
+                            a_far -= delta_a;
+                            cElev -= layerThick;
+                            
+                            if (cElev <= ecsBottom)
+                            {
+                                z2_valid = false;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // 如果z2有效且在围护结构范围内，添加节点
+                    if (z2_valid && z2 > ecsBottom && z2 < mf.ElevOfGround)
+                    {
+                        load.Z2 = z2;
+                        mf.Nodes.Add(new Node(mf.Nodes.Count() + 1, 0.0, z2));
+                        mf.PrintString($"    远端影响深度 z2 = {z2:F3}m，已添加节点");
+                    }
+                    else if (!z2_valid || z2 <= ecsBottom)
+                    {
+                        z2 = ecsBottom;
+                        load.Z2 = z2;
+                        mf.PrintString($"    提示：局部荷载 {load.No} 远端超出围护结构，影响范围截断到底部 {z2:F3}m");
+                    }
+                    
+                    // 输出影响范围总结
+                    if (z1_valid && z1 > ecsBottom)
+                    {
+                        mf.PrintString($"    局部荷载 {load.No} 影响标高范围: {z1:F3}m ~ {z2:F3}m");
+                    }
+                }
+                
+                mf.PrintString("局部荷载影响位置节点添加完成");
+            }
+            // ========== 局部荷载影响位置节点添加完成 ==========
+
             mf.Nodes = mf.NodesDistinct(mf.Nodes);                                       // 节点列表去重
             mf.Nodes = mf.Nodes.OrderByDescending(o => o.Ny).ToList();                   // 按降序排序
 
@@ -438,6 +550,74 @@ namespace ActiveControl.Forms
             #region 荷载列向量初始化
 
             Fs = Vector<double>.Build.Dense(mf.Nodes.Count() * 3);   // 土压力荷载向量
+            
+            // 施加局部荷载
+            if (mf.LocalLoads.Count > 0)
+            {
+                mf.PrintString($"开始施加局部荷载，共 {mf.LocalLoads.Count} 个");
+                
+                foreach (LocalLoad load in mf.LocalLoads)
+                {
+                    // 检查局部荷载是否有效
+                    if (load.Z1 == -999)
+                    {
+                        mf.PrintString($"  局部荷载 {load.No} 无效（影响深度超出范围），跳过");
+                        continue;
+                    }
+                    
+                    mf.PrintString($"  施加局部荷载 {load.No}，影响范围: {load.Z1:F3}m ~ {load.Z2:F3}m");
+                    
+                    // 遍历围护结构单元
+                    int affectedElemCount = 0;
+                    for (int i = 0; i < CM_Elem_ECS.Count; i++)
+                    {
+                        double node_i_elev = mf.Nodes[i].Ny;
+                        double node_j_elev = mf.Nodes[i + 1].Ny;
+                        
+                        // 判断单元是否在影响范围内
+                        if (node_i_elev <= load.Z1 && node_j_elev >= load.Z2)
+                        {
+                            // 判断单元在哪个土层
+                            double cElev = mf.ElevOfCollar;
+                            foreach (SoilLayer j in mf.SoilLayers)
+                            {
+                                cElev -= j.Thick;
+                                if (mf.Nodes[i].Ny > cElev)
+                                {
+                                    // 计算主动土压力系数
+                                    double Ka = Math.Pow(Math.Tan((45 - j.Phi / 2) * Math.PI / 180), 2);
+                                    
+                                    // 计算附加水平应力（均布荷载）
+                                    double q = Ka * load.LocalGroundLoad * 1e3;  // kPa转Pa
+                                    
+                                    // 单元长度
+                                    double elem_length = mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny;
+                                    
+                                    // 均布荷载转化为节点等效荷载
+                                    double tempFyi = -q * elem_length / 2;
+                                    double tempFyj = -q * elem_length / 2;
+                                    double tempMomi = q / 12 * Math.Pow(elem_length, 2);
+                                    double tempMomj = -q / 12 * Math.Pow(elem_length, 2);
+                                    
+                                    // 累加到荷载向量
+                                    Fs[i * 3] += tempFyi;
+                                    Fs[i * 3 + 2] += tempMomi;
+                                    Fs[(i + 1) * 3] += tempFyj;
+                                    Fs[(i + 1) * 3 + 2] += tempMomj;
+                                    
+                                    affectedElemCount++;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    mf.PrintString($"    影响单元数: {affectedElemCount}");
+                }
+                
+                mf.PrintString("局部荷载施加完成");
+            }
+
             double Sy = mf.GroundLoad * 1e3;
 
             for (int i = 0; i < CM_Elem_ECS.Count(); i++)            // 土压力
@@ -473,135 +653,135 @@ namespace ActiveControl.Forms
                     }
                 }
             }
-            // 局部荷载（滑动面传递法）
-            if (mf.LocalLoads.Count > 0)
-            {
-                mf.PrintString($"开始计算局部荷载，共 {mf.LocalLoads.Count} 个");
+            // // 局部荷载（滑动面传递法）
+            // if (mf.LocalLoads.Count > 0)
+            // {
+            //     mf.PrintString($"开始计算局部荷载，共 {mf.LocalLoads.Count} 个");
                 
-                foreach (LocalLoad load in mf.LocalLoads)
-                {
-                    mf.PrintString($"计算局部荷载 {load.No}");
+            //     foreach (LocalLoad load in mf.LocalLoads)
+            //     {
+            //         mf.PrintString($"计算局部荷载 {load.No}");
                     
-                    double ecsBottom = mf.ElevOfGround - mf.LengthOfECS;
+            //         double ecsBottom = mf.ElevOfGround - mf.LengthOfECS;
                     
-                    // 追踪荷载近端滑动面，确定 z1
-                    double a_near = load.DistToECS;
-                    double cElev = mf.ElevOfCollar;
-                    double z1 = -999;
-                    bool z1_out_of_range = false;
+            //         // 追踪荷载近端滑动面，确定 z1
+            //         double a_near = load.DistToECS;
+            //         double cElev = mf.ElevOfCollar;
+            //         double z1 = -999;
+            //         bool z1_out_of_range = false;
                     
-                    foreach (SoilLayer soil in mf.SoilLayers)
-                    {
-                        double phi = soil.Phi;
-                        double beta = (45 + phi / 2) * Math.PI / 180;
-                        double layerThick = soil.Thick;
-                        double delta_a = layerThick / Math.Tan(beta);
+            //         foreach (SoilLayer soil in mf.SoilLayers)
+            //         {
+            //             double phi = soil.Phi;
+            //             double beta = (45 + phi / 2) * Math.PI / 180;
+            //             double layerThick = soil.Thick;
+            //             double delta_a = layerThick / Math.Tan(beta);
                         
-                        if (a_near < delta_a)
-                        {
-                            double depth_in_layer = a_near * Math.Tan(beta);
-                            z1 = cElev - depth_in_layer;
-                            break;
-                        }
-                        else
-                        {
-                            a_near -= delta_a;
-                            cElev -= layerThick;
+            //             if (a_near < delta_a)
+            //             {
+            //                 double depth_in_layer = a_near * Math.Tan(beta);
+            //                 z1 = cElev - depth_in_layer;
+            //                 break;
+            //             }
+            //             else
+            //             {
+            //                 a_near -= delta_a;
+            //                 cElev -= layerThick;
                             
-                            if (cElev <= ecsBottom)
-                            {
-                                z1_out_of_range = true;
-                                break;
-                            }
-                        }
-                    }
+            //                 if (cElev <= ecsBottom)
+            //                 {
+            //                     z1_out_of_range = true;
+            //                     break;
+            //                 }
+            //             }
+            //         }
                     
-                    if (z1_out_of_range || z1 < ecsBottom)
-                    {
-                        mf.PrintString($"  警告：局部荷载 {load.No} 距离太远，影响深度超出围护结构范围");
-                        continue;
-                    }
+            //         if (z1_out_of_range || z1 < ecsBottom)
+            //         {
+            //             mf.PrintString($"  警告：局部荷载 {load.No} 距离太远，影响深度超出围护结构范围");
+            //             continue;
+            //         }
                     
-                    // 追踪荷载远端滑动面，确定 z2
-                    double a_far = load.DistToECS + load.Width;
-                    cElev = mf.ElevOfCollar;
-                    double z2 = -999;
-                    bool z2_out_of_range = false;
+            //         // 追踪荷载远端滑动面，确定 z2
+            //         double a_far = load.DistToECS + load.Width;
+            //         cElev = mf.ElevOfCollar;
+            //         double z2 = -999;
+            //         bool z2_out_of_range = false;
                     
-                    foreach (SoilLayer soil in mf.SoilLayers)
-                    {
-                        double phi = soil.Phi;
-                        double beta = (45 + phi / 2) * Math.PI / 180;
-                        double layerThick = soil.Thick;
-                        double delta_a = layerThick / Math.Tan(beta);
+            //         foreach (SoilLayer soil in mf.SoilLayers)
+            //         {
+            //             double phi = soil.Phi;
+            //             double beta = (45 + phi / 2) * Math.PI / 180;
+            //             double layerThick = soil.Thick;
+            //             double delta_a = layerThick / Math.Tan(beta);
                         
-                        if (a_far < delta_a)
-                        {
-                            double depth_in_layer = a_far * Math.Tan(beta);
-                            z2 = cElev - depth_in_layer;
-                            break;
-                        }
-                        else
-                        {
-                            a_far -= delta_a;
-                            cElev -= layerThick;
+            //             if (a_far < delta_a)
+            //             {
+            //                 double depth_in_layer = a_far * Math.Tan(beta);
+            //                 z2 = cElev - depth_in_layer;
+            //                 break;
+            //             }
+            //             else
+            //             {
+            //                 a_far -= delta_a;
+            //                 cElev -= layerThick;
                             
-                            if (cElev <= ecsBottom)
-                            {
-                                z2_out_of_range = true;
-                                break;
-                            }
-                        }
-                    }
+            //                 if (cElev <= ecsBottom)
+            //                 {
+            //                     z2_out_of_range = true;
+            //                     break;
+            //                 }
+            //             }
+            //         }
                     
-                    if (z2_out_of_range || z2 < ecsBottom)
-                    {
-                        z2 = ecsBottom;
-                        mf.PrintString($"  提示：局部荷载 {load.No} 远端超出围护结构，影响范围截断到底部");
-                    }
+            //         if (z2_out_of_range || z2 < ecsBottom)
+            //         {
+            //             z2 = ecsBottom;
+            //             mf.PrintString($"  提示：局部荷载 {load.No} 远端超出围护结构，影响范围截断到底部");
+            //         }
                     
-                    mf.PrintString($"  影响标高: {z1:F2}m ~ {z2:F2}m");
+            //         mf.PrintString($"  影响标高: {z1:F2}m ~ {z2:F2}m");
                     
-                    // 遍历围护结构单元，施加荷载
-                    for (int i = 0; i < CM_Elem_ECS.Count; i++)
-                    {
-                        double node_i_elev = mf.Nodes[i].Ny;
-                        double node_j_elev = mf.Nodes[i + 1].Ny;
+            //         // 遍历围护结构单元，施加荷载
+            //         for (int i = 0; i < CM_Elem_ECS.Count; i++)
+            //         {
+            //             double node_i_elev = mf.Nodes[i].Ny;
+            //             double node_j_elev = mf.Nodes[i + 1].Ny;
                         
-                        // 判断单元是否在影响范围内
-                        if (node_i_elev <= z1 && node_j_elev >= z2)
-                        {
-                            // 找到单元所在的土层
-                            double cElev_temp = mf.ElevOfCollar;
-                            double elem_mid_elev = (node_i_elev + node_j_elev) / 2;
+            //             // 判断单元是否在影响范围内
+            //             if (node_i_elev <= z1 && node_j_elev >= z2)
+            //             {
+            //                 // 找到单元所在的土层
+            //                 double cElev_temp = mf.ElevOfCollar;
+            //                 double elem_mid_elev = (node_i_elev + node_j_elev) / 2;
                             
-                            foreach (SoilLayer soil in mf.SoilLayers)
-                            {
-                                double layer_top = cElev_temp;
-                                double layer_bottom = cElev_temp - soil.Thick;
+            //                 foreach (SoilLayer soil in mf.SoilLayers)
+            //                 {
+            //                     double layer_top = cElev_temp;
+            //                     double layer_bottom = cElev_temp - soil.Thick;
                                 
-                                if (elem_mid_elev <= layer_top && elem_mid_elev > layer_bottom)
-                                {
-                                    double phi = soil.Phi;
-                                    double Ka = Math.Pow(Math.Tan((45 - phi / 2) * Math.PI / 180), 2);
-                                    double delta_sigma_h = Ka * load.LocalGroundLoad * 1e3;
+            //                     if (elem_mid_elev <= layer_top && elem_mid_elev > layer_bottom)
+            //                     {
+            //                         double phi = soil.Phi;
+            //                         double Ka = Math.Pow(Math.Tan((45 - phi / 2) * Math.PI / 180), 2);
+            //                         double delta_sigma_h = Ka * load.LocalGroundLoad * 1e3;
                                     
-                                    double elem_height = node_i_elev - node_j_elev;
-                                    double force_i = delta_sigma_h * elem_height / 2;
-                                    double force_j = delta_sigma_h * elem_height / 2;
+            //                         double elem_height = node_i_elev - node_j_elev;
+            //                         double force_i = delta_sigma_h * elem_height / 2;
+            //                         double force_j = delta_sigma_h * elem_height / 2;
                                     
-                                    Fs[i * 3] += force_i;
-                                    Fs[(i + 1) * 3] += force_j;
+            //                         Fs[i * 3] += force_i;
+            //                         Fs[(i + 1) * 3] += force_j;
                                     
-                                    break;
-                                }
+            //                         break;
+            //                     }
                                 
-                                cElev_temp -= soil.Thick;
-                            }
-                        }
-                    }
-                }
-            }
+            //                     cElev_temp -= soil.Thick;
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
 
 
 

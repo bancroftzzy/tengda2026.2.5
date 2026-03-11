@@ -15,18 +15,16 @@ namespace ActiveControl
         public double DistToECS;            // 距围护结构距离(m)
         public double Width;                // 荷载宽度(m)
         public double LocalGroundLoad;      // 局部地面荷载(kPa)
+        public double Z1;                   //近端影响深度(m)
+        public double Z2;                   //远端影响深度(m)
 
-        /// <summary>
-        /// 构造函数
-        /// </summary>
-        /// <param name="distToECS">距围护结构距离(m)</param>
-        /// <param name="width">荷载宽度(m)</param>
-        /// <param name="localGroundLoad">局部地面荷载(kPa)</param>
         public LocalLoad(double distToECS, double width, double localGroundLoad)
         {
             DistToECS = distToECS;
             Width = width;
             LocalGroundLoad = localGroundLoad;
+            Z1 = -999;            //将影响深度初始化为无效值
+            Z2 = -999;
         }
     }
 }
