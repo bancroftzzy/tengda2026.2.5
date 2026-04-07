@@ -72,32 +72,102 @@ namespace ActiveControl
                 Elements[i].isAlive = true;
         }
 
-        public static bool Check(Vector<double> Force, Matrix<double> ForceCohMat, double M1, double M2, double Q, List<int> CM_Elem_ECS, List<int> CM_Elem_Supports, List<int> AdjSupIndex, List<Element> Elements, ref List<Node> Nodes, List<Support> Supports, Vector<double> Fs, List<int> ConstrainedDOFIndex, out Vector<double> Disp, out Vector<double> RForce)
+        public static bool Check(Vector<double> Force, Matrix<double> ForceCohMat, double M1, double M2, double Q, List<int> CM_Elem_ECS, List<int> CM_Elem_Supports, List<int> AdjSupIndex, List<Element> Elements, ref List<Node> Nodes, List<Support> Supports, Vector<double> Fs, List<int> ConstrainedDOFIndex, Vector<double> Force0, out Vector<double> Disp, out Vector<double> RForce)
         {
             bool flag = true;
+
+            // 打印输入的Force向量
+            Console.WriteLine($"[Check输入] Force = {Force}");
+
             Vector<double> ForceIni = ForceCohMat.Solve(Force);
+
+            // 打印计算得到的ForceIni向量
+            Console.WriteLine($"[Check计算] ForceIni = {ForceIni}");
+
             for (int i = 0; i < AdjSupIndex.Count(); i++)
                 Elements[CM_Elem_Supports[AdjSupIndex[i]]].RealConstant.IniStrn += ForceIni[i] / Elements[CM_Elem_Supports[AdjSupIndex[i]]].Material.Emodulus / Elements[CM_Elem_Supports[AdjSupIndex[i]]].RealConstant.Area;
             Solve(Elements, ref Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
             
             // 围护结构内力校核
-            foreach (int i in CM_Elem_ECS) 
+            foreach (int i in CM_Elem_ECS)
             {
                 Elements[i].getNodalForce();
-                if (Elements[i].iMom > M2 || Elements[i].iMom < -M1 || Elements[i].iFy > Q || Elements[i].iFy < -Q)
+                if (Elements[i].iMom > M2 * 1e3 || Elements[i].iMom < -M1 * 1e3 || Elements[i].iFy > Q * 1e3 || Elements[i].iFy < -Q * 1e3)
+                {
+                     Console.WriteLine($"[Check失败] 单元{i}: iMom={Elements[i].iMom:F2} (限值: {-M1 * 1e3:F2} ~ {M2 * 1e3:F2}), iFy={Elements[i].iFy:F2} (限值: ±{Q * 1e3:F2})");
                     flag = false;
+                }
+            }
+
+            // 围护结构位移校核（不允许正向位移）
+            foreach (int i in CM_Elem_ECS)
+            {
+                int leftNodeIndex = Elements[i].Left.No - 1;
+                int rightNodeIndex = Elements[i].Right.No - 1;
+
+                if (Nodes[leftNodeIndex].Ux > 1e-6 || Nodes[rightNodeIndex].Ux > 1e-6)
+                {
+                    Console.WriteLine($"[Check失败] 围护结构出现正向位移: 单元{i}, 左节点{Elements[i].Left.No} Ux={Nodes[leftNodeIndex].Ux:F6}, 右节点{Elements[i].Right.No} Ux={Nodes[rightNodeIndex].Ux:F6}");
+                    flag = false;
+                    break;
+                }
             }
 
             // 支撑轴力限值校核
-            for(int i = 0; i < CM_Elem_Supports.Count(); i++)
+            // for (int i = 0; i < CM_Elem_Supports.Count(); i++)
+            // {
+            //     if (Elements[CM_Elem_Supports[i]].isAlive)
+            //     {
+            //         Elements[CM_Elem_Supports[i]].getNodalForce();
+            //         //if (Elements[CM_Elem_Supports[i]].jFx < -Supports[i].MaxFC / Supports[i].HrzDist || Elements[CM_Elem_Supports[i]].jFx > Supports[i].MaxFT / Supports[i].HrzDist)
+            //         // if(Elements[CM_Elem_Supports[i]].jFx < -Supports[i].MaxFC / Supports[i].HrzDist || Elements[CM_Elem_Supports[i]].jFx > -1 * 10 * 1e3 / Supports[i].HrzDist)   // 这里将拉力限值放宽到10kN，实际工程中应根据支撑特性合理设置
+            //         double jFx = Elements[CM_Elem_Supports[i]].jFx;  // 支撑轴力（负值=受压，正值=受拉）
+
+            //         // 最大受压力（负值，绝对值最大）
+            //         double maxForce = -1 * Supports[i].MaxFC / Supports[i].HrzDist;
+
+            //         // 最小受压力（负值，绝对值最小）:20kN或Force0绝对值的10%，取较大值
+            //         double minForce = Math.Min(-1 * 20 * 1e3, Force0[i] * 0.1);
+
+            //         if (jFx < maxForce || jFx > minForce)
+            //         {
+            //              Console.WriteLine($"[Check失败] 支撑{i}: jFx={jFx:F2} (限值: {maxForce:F2} ~ {minForce:F2})");
+            //             flag = false;
+            //         }
+            //     }
+            // }
+            for (int i = 0; i < CM_Elem_Supports.Count(); i++)
             {
-                if (Elements[CM_Elem_Supports[i]].isAlive) 
+                if (Elements[CM_Elem_Supports[i]].isAlive)
                 {
                     Elements[CM_Elem_Supports[i]].getNodalForce();
-                    if (Elements[CM_Elem_Supports[i]].jFx < -Supports[i].MaxFC / Supports[i].HrzDist || Elements[CM_Elem_Supports[i]].jFx > Supports[i].MaxFT / Supports[i].HrzDist)
+                    double jFx = Elements[CM_Elem_Supports[i]].jFx;
+
+                    double maxForce = -1 * Supports[i].MaxFC / Supports[i].HrzDist;
+
+                    // 找到当前支撑在AdjSupIndex中的位置
+                    int adjIndex = AdjSupIndex.IndexOf(i);
+                    
+                    double minForce;
+                    if (adjIndex >= 0)  // 如果是可调支撑
+                    {
+                        // 使用Force0[adjIndex]（这才是正确的索引）
+                        double minForceAbs = Math.Max(20 * 1e3, Math.Abs(Force0[adjIndex]) * 0.1);
+                        minForce = -minForceAbs;
+                    }
+                    else  // 如果不是可调支撑
+                    {
+                        minForce = Supports[i].MaxFT / Supports[i].HrzDist;
+                    }
+
+                    if (jFx < maxForce || jFx > minForce)
+                    {
+                        Console.WriteLine($"[Check失败] 支撑{i}: jFx={jFx:F2} (限值: {maxForce:F2} ~ {minForce:F2})");
                         flag = false;
+                    }
                 }
             }
+
 
             for (int i = 0; i < AdjSupIndex.Count(); i++)
                 Elements[CM_Elem_Supports[AdjSupIndex[i]]].RealConstant.IniStrn -= ForceIni[i] / Elements[CM_Elem_Supports[AdjSupIndex[i]]].Material.Emodulus / Elements[CM_Elem_Supports[AdjSupIndex[i]]].RealConstant.Area;
@@ -153,8 +223,9 @@ namespace ActiveControl
             double Ux = 0;
             foreach (Node i in Nodes)
             {
-                if (i.Nx == 0 && Math.Abs(i.Ux) > Ux)
+                if (i.Nx == 0 && Math.Abs(i.Ux) > Ux)                     //考虑了围护结构最大位移的绝对值
                     Ux = Math.Abs(i.Ux);
+
             }
             return Ux;
         }

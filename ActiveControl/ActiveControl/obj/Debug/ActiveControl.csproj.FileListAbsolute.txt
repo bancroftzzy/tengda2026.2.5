@@ -347,19 +347,6 @@ E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\System
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\System.Security.AccessControl.dll
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\System.Security.Principal.Windows.dll
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\MathNet.Numerics.xml
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\cs\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\de\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\es\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\fr\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\it\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\ja\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\ko\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\pl\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\pt-BR\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\ru\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\tr\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\zh-Hans\Microsoft.QualityTools.Testing.Fakes.resources.dll
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\zh-Hant\Microsoft.QualityTools.Testing.Fakes.resources.dll
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.csproj.AssemblyReference.cache
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.exe.config
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.Forms.Form_Calculate.resources
@@ -409,3 +396,4 @@ D:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\Active
 D:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.application
 D:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveCo.4DD4EB9A.Up2Date
 D:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.Forms.Form_LocalLoadsInfo.resources
+E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.Forms.Form_LocalLoadsInfo.resources

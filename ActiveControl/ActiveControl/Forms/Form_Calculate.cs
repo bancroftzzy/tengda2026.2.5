@@ -473,7 +473,7 @@ namespace ActiveControl.Forms
 
             // 定义材料
             Material Soil = new Material("Soil", 1, 0);
-            Material Steel = new Material("Steel", 206e9, 7850);
+            Material Steel = new Material("Steel", 206e9, 7850);    // 弹性模量单位是N/m²，密度单位是kg/m³
             Material Concrete = new Material("Concrete", 31.5e9, 2400);
 
             // 生成围护结构单元
@@ -1058,6 +1058,19 @@ namespace ActiveControl.Forms
             {
                 Matrix<double> ForceCohMat = GetCohMat();
 
+                // 打印影响矩阵
+                Console.WriteLine("=== 影响矩阵 ForceCohMat ===");
+                for (int i = 0; i < ForceCohMat.RowCount; i++)
+                {
+                    Console.Write($"行{i}: [");
+                    for (int j = 0; j < ForceCohMat.ColumnCount; j++)
+                    {
+                        Console.Write($"{ForceCohMat[i, j]:F2}");
+                        if (j < ForceCohMat.ColumnCount - 1) Console.Write(", ");
+                    }
+                    Console.WriteLine("]");
+                }
+
                     // 计算当前支撑轴力及优化上下限
                     Vector<double> ForceMax = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());         // 设计变量（可调支撑轴力）上下限
                     Vector<double> ForceMin = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
@@ -1065,10 +1078,18 @@ namespace ActiveControl.Forms
                     for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
                     {
                         mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].getNodalForce();
-                        Force0[i] = -mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].jFx;
+                        Force0[i] = -mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].jFx;  // 单位：N
+
+                        // 最大轴力（受压），单位：N
                         ForceMax[i] = -Force0[i] + mf.Supports[Loadcase.AdjSupIndex[i]].MaxFC / mf.Supports[Loadcase.AdjSupIndex[i]].HrzDist;
-                        ForceMin[i] = -Force0[i] - mf.Supports[Loadcase.AdjSupIndex[i]].MaxFT / mf.Supports[Loadcase.AdjSupIndex[i]].HrzDist;
-                        
+
+                        // 最小轴力（受压）：20kN 或 Force0绝对值的10%，取较大者
+                        double minForce1 = 20 * 1e3;  // 20kN = 20000N
+                        double minForce2 = Math.Abs(Force0[i]) * 0.1;  // Force0绝对值的10%
+                        double minForceRequired = Math.Max(minForce1, minForce2);  // 单位：N
+
+                        ForceMin[i] = -Force0[i] + minForceRequired;  // 调整量，单位：N
+
                         // 数值保护：检查是否有异常值
                         if (double.IsNaN(Force0[i]) || double.IsInfinity(Force0[i]) || 
                             double.IsNaN(ForceMax[i]) || double.IsInfinity(ForceMax[i]) ||
@@ -1078,6 +1099,32 @@ namespace ActiveControl.Forms
                             return;
                         }
                     }
+
+                    // 打印Force0、ForceMax、ForceMin
+                    Console.WriteLine("=== 支撑轴力范围 ===");
+                    Console.Write("Force0 (当前轴力): [");
+                    for (int i = 0; i < Force0.Count; i++)
+                    {
+                        Console.Write($"{Force0[i]:F5}");
+                        if (i < Force0.Count - 1) Console.Write(", ");
+                    }
+                    Console.WriteLine("]");
+
+                    Console.Write("ForceMin (最小调整量): [");
+                    for (int i = 0; i < ForceMin.Count; i++)
+                    {
+                        Console.Write($"{ForceMin[i]:F2}");
+                        if (i < ForceMin.Count - 1) Console.Write(", ");
+                    }
+                    Console.WriteLine("]");
+
+                    Console.Write("ForceMax (最大调整量): [");
+                    for (int i = 0; i < ForceMax.Count; i++)
+                    {
+                        Console.Write($"{ForceMax[i]:F2}");
+                        if (i < ForceMax.Count - 1) Console.Write(", ");
+                    }
+                    Console.WriteLine("]");
 
                     // 粒子群参数
                 int PtCount = Loadcase.AdjSupIndex.Count() * 3;           // 粒子数
@@ -1108,8 +1155,15 @@ namespace ActiveControl.Forms
                 {
                     Vector<double> ForceIni1 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
                     Vector<double> ForceIni2 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
-                    while (true)
+                    
+                    int maxAttempts = 1000;  // 最大尝试次数，防止死循环
+                    int attemptCount = 0; //当前尝试次数
+                    bool foundFeasible = false; // 是否找到可行解的标志
+                    
+                    while (attemptCount < maxAttempts)
                     {
+                        attemptCount++;
+
                         for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)      // 对中法生成一对粒子初始位置
                         {
                             ForceIni1[iForce] = rd.NextDouble() * (ForceMax[iForce] - ForceMin[iForce]) + ForceMin[iForce];
@@ -1118,10 +1172,10 @@ namespace ActiveControl.Forms
 
                         // 随机初始值冲突检查 & 个体最优初始化
                         double f1, f2;
-                        if (FEM.Check(ForceIni1, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, out Disp, out RForce))
+                        if (FEM.Check(ForceIni1, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
                         {
                             f1 = FEM.GetDispNormInf(mf.Nodes);
-                            if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, out Disp, out RForce))
+                            if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
                             {
                                 f2 = FEM.GetDispNormInf(mf.Nodes);
                                 if (f1 < f2)
@@ -1152,9 +1206,10 @@ namespace ActiveControl.Forms
                                 }
                                 FunPbest[iPt] = f1;
                             }
+                            foundFeasible = true;
                             break;
                         }
-                        else if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, out Disp, out RForce))
+                        else if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
                         {
                             f2 = FEM.GetDispNormInf(mf.Nodes);
                             for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
@@ -1163,9 +1218,17 @@ namespace ActiveControl.Forms
                                 Pbest[iForce, iPt] = ForceIni2[iForce];
                             }
                             FunPbest[iPt] = f2;
+                            foundFeasible = true;
                             break;
                         }
                     }
+                    // 数值保护：检查是否成功找到可行解
+                    if (!foundFeasible)
+                    {
+                        mf.PrintString($"警告：粒子 {iPt + 1} 在 {maxAttempts} 次尝试后未找到可行初始位置，算法终止！");
+                        return;
+                    }
+                    
                     for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)         // 粒子速度初始化
                         Vel[iForce, iPt] = rd.NextDouble() * (VelMax[iForce] - VelMin[iForce]) + VelMin[iForce];
                 }
@@ -1248,7 +1311,7 @@ namespace ActiveControl.Forms
 
                         // 当前轴力冲突检验
                         double f;
-                        if (FEM.Check(ForceIni, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, out Disp, out RForce))
+                        if (FEM.Check(ForceIni, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
                         {
                             f = FEM.GetDispNormInf(mf.Nodes);
                             if (f < FunPbest[iPt])     // 校核是否优于个体历史最优
@@ -1297,9 +1360,32 @@ namespace ActiveControl.Forms
                     else
                         sw = new StreamWriter(Application.StartupPath + "\\支撑轴力迭代中间数据.txt", true, Encoding.UTF8);       // 之后追加行
 
-                    sw.WriteLine("{0,2}{1,6}{2,10:f4}{3,14:e4}{4,14:e4}{5,14:e4}{6,14:e4}{7,14:e4}{8,14:e4}{9,14:e4}{10,14:e4}{11,14:e4}{12,14:e4}",
-                        Loadcase.CurLCNo, Iter, FunGbest * 1e3, mf.Elements[CM_Elem_Supports[0]].iFx, mf.Elements[CM_Elem_Supports[1]].iFx, mf.Elements[CM_Elem_Supports[2]].iFx, mf.Elements[CM_Elem_Supports[3]].iFx, mf.Elements[CM_Elem_Supports[4]].iFx, mf.Elements[CM_Elem_Supports[5]].iFx,
-                        mf.Elements.Max(o => o.iMom), mf.Elements.Min(o => o.iMom), mf.Elements.Max(o => o.iFy), mf.Elements.Min(o => o.iFy));
+                    // sw.WriteLine("{0,2}{1,6}{2,10:f4}{3,14:e4}{4,14:e4}{5,14:e4}{6,14:e4}{7,14:e4}{8,14:e4}{9,14:e4}{10,14:e4}{11,14:e4}{12,14:e4}",
+                    //     Loadcase.CurLCNo, Iter, FunGbest * 1e3, mf.Elements[CM_Elem_Supports[0]].iFx, mf.Elements[CM_Elem_Supports[1]].iFx, mf.Elements[CM_Elem_Supports[2]].iFx, mf.Elements[CM_Elem_Supports[3]].iFx, mf.Elements[CM_Elem_Supports[4]].iFx, mf.Elements[CM_Elem_Supports[5]].iFx,
+                    //     mf.Elements.Max(o => o.iMom), mf.Elements.Min(o => o.iMom), mf.Elements.Max(o => o.iFy), mf.Elements.Min(o => o.iFy));
+
+                    // 动态处理支撑数量的版本
+                    string line = string.Format("{0,2}{1,6}{2,10:f4}", Loadcase.CurLCNo, Iter, FunGbest * 1e3);
+
+                    // 输出支撑轴力（最多6个，不足的用空格填充）
+                    for (int i = 0; i < 6; i++)
+                    {
+                        if (i < CM_Elem_Supports.Count)
+                        {
+                            line += string.Format("{0,14:e4}", mf.Elements[CM_Elem_Supports[i]].iFx);
+                        }
+                        else
+                        {
+                            line += string.Format("{0,14}", "");  // 不足6个支撑时用空格填充
+                        }
+                    }
+
+                    // 输出弯矩和剪力的最大最小值
+                    line += string.Format("{0,14:e4}{1,14:e4}{2,14:e4}{3,14:e4}",
+                        mf.Elements.Max(o => o.iMom), mf.Elements.Min(o => o.iMom),
+                        mf.Elements.Max(o => o.iFy), mf.Elements.Min(o => o.iFy));
+
+                    sw.WriteLine(line);
 
                     sw.Close();
 
@@ -1307,7 +1393,7 @@ namespace ActiveControl.Forms
 
                 // 搜索结束，检查搜索结果：若满足条件，给出各个轴力；若不满足，在屏幕上打出提示
                 //if (MinDef < EpsDefor * (ElevOfGround - curElev) && flag)
-                if (FEM.Check(Gbest, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, out Disp, out RForce))
+                if (FEM.Check(Gbest, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
                 {
                     Vector<double> DeltaInstr = ForceCohMat.Solve(Gbest);
                     for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
@@ -1397,6 +1483,19 @@ namespace ActiveControl.Forms
                     for (int j = 0; j < PartAdjSupIndex.Count(); j++)
                         ForceCohMat[PartAdjSupIndex.Count() - i - 1, PartAdjSupIndex.Count() - j - 1] = tempForceCohMat[Loadcase.AdjSupIndex.Count() - i - 1, Loadcase.AdjSupIndex.Count() - j - 1];
 
+                // 打印影响矩阵
+                Console.WriteLine("=== 影响矩阵 ForceCohMat (分区) ===");
+                for (int i = 0; i < ForceCohMat.RowCount; i++)
+                {
+                    Console.Write($"行{i}: [");
+                    for (int j = 0; j < ForceCohMat.ColumnCount; j++)
+                    {
+                        Console.Write($"{ForceCohMat[i, j]:F2}");
+                        if (j < ForceCohMat.ColumnCount - 1) Console.Write(", ");
+                    }
+                    Console.WriteLine("]");
+                }
+
                 // 计算当前支撑轴力及优化上下限
                 Vector<double> ForceMax = Vector<double>.Build.Dense(PartAdjSupIndex.Count());         // 设计变量（可调支撑轴力）上下限
                 Vector<double> ForceMin = Vector<double>.Build.Dense(PartAdjSupIndex.Count());
@@ -1404,10 +1503,57 @@ namespace ActiveControl.Forms
                 for (int i = 0; i < PartAdjSupIndex.Count(); i++)
                 {
                     mf.Elements[CM_Elem_Supports[PartAdjSupIndex[i]]].getNodalForce();
-                    Force0[i] = -mf.Elements[CM_Elem_Supports[PartAdjSupIndex[i]]].jFx;
+                    Force0[i] = -mf.Elements[CM_Elem_Supports[PartAdjSupIndex[i]]].jFx;  // 单位：N
+
+                    // 最大轴力（受压），单位：N
                     ForceMax[i] = -Force0[i] + mf.Supports[PartAdjSupIndex[i]].MaxFC / mf.Supports[PartAdjSupIndex[i]].HrzDist;
-                    ForceMin[i] = -Force0[i] - mf.Supports[PartAdjSupIndex[i]].MaxFT / mf.Supports[PartAdjSupIndex[i]].HrzDist;
+
+                    // 最小轴力（受压）：20kN 或 Force0绝对值的10%，取较大者
+                    double minForce1 = 20 * 1e3;  // 20kN = 20000N
+                    double minForce2 = Math.Abs(Force0[i]) * 0.1;  // Force0绝对值的10%
+                    double minForceRequired = Math.Max(minForce1, minForce2);  // 单位：N
+
+                    ForceMin[i] = -Force0[i] + minForceRequired;  // 调整量，单位：N
+
+                    // 旧的计算方法（已废弃）
+                    //ForceMin[i] = -Force0[i] - mf.Supports[PartAdjSupIndex[i]].MaxFT / mf.Supports[PartAdjSupIndex[i]].HrzDist;
+                    //ForceMin[i] = -0.9 * Force0[i];     // 这里假设最小轴力为当前轴力的10%，实际工程中应根据支撑特性合理设置
+
+                    // 数值保护：检查是否有异常值
+                    if (double.IsNaN(Force0[i]) || double.IsInfinity(Force0[i]) ||
+                        double.IsNaN(ForceMax[i]) || double.IsInfinity(ForceMax[i]) ||
+                        double.IsNaN(ForceMin[i]) || double.IsInfinity(ForceMin[i]))
+                    {
+                        mf.PrintString("分区粒子群算法计算出现数值异常，请检查模型参数！");
+                        return;
+                    }
                 }
+
+                // 打印Force0、ForceMax、ForceMin
+                Console.WriteLine("=== 支撑轴力范围 (分区) ===");
+                Console.Write("Force0 (当前轴力): [");
+                for (int i = 0; i < Force0.Count; i++)
+                {
+                    Console.Write($"{Force0[i]:F5}");
+                    if (i < Force0.Count - 1) Console.Write(", ");
+                }
+                Console.WriteLine("]");
+
+                Console.Write("ForceMin (最小调整量): [");
+                for (int i = 0; i < ForceMin.Count; i++)
+                {
+                    Console.Write($"{ForceMin[i]:F2}");
+                    if (i < ForceMin.Count - 1) Console.Write(", ");
+                }
+                Console.WriteLine("]");
+
+                Console.Write("ForceMax (最大调整量): [");
+                for (int i = 0; i < ForceMax.Count; i++)
+                {
+                    Console.Write($"{ForceMax[i]:F2}");
+                    if (i < ForceMax.Count - 1) Console.Write(", ");
+                }
+                Console.WriteLine("]");
 
                 // 粒子群参数
                 int PtCount = PartAdjSupIndex.Count() * 3;           // 粒子数
@@ -1438,8 +1584,15 @@ namespace ActiveControl.Forms
                 {
                     Vector<double> ForceIni1 = Vector<double>.Build.Dense(PartAdjSupIndex.Count());
                     Vector<double> ForceIni2 = Vector<double>.Build.Dense(PartAdjSupIndex.Count());
-                    while (true)
+
+                    int maxAttempts = 1000;  // 最大尝试次数，防止死循环
+                    int attemptCount = 0; //当前尝试次数
+                    bool foundFeasible = false; // 是否找到可行解的标志
+
+                    while (attemptCount < maxAttempts)
                     {
+                        attemptCount++;
+
                         for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)      // 对中法生成一对粒子初始位置
                         {
                             ForceIni1[iForce] = rd.NextDouble() * (ForceMax[iForce] - ForceMin[iForce]) + ForceMin[iForce];
@@ -1448,10 +1601,10 @@ namespace ActiveControl.Forms
 
                         // 随机初始值冲突检查 & 个体最优初始化
                         double f1, f2;
-                        if (FEM.Check(ForceIni1, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, out Disp, out RForce))
+                        if (FEM.Check(ForceIni1, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
                         {
                             f1 = FEM.GetDispNormInf(mf.Nodes);
-                            if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, out Disp, out RForce))
+                            if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
                             {
                                 f2 = FEM.GetDispNormInf(mf.Nodes);
                                 if (f1 < f2)
@@ -1482,9 +1635,10 @@ namespace ActiveControl.Forms
                                 }
                                 FunPbest[iPt] = f1;
                             }
+                            foundFeasible = true;
                             break;
                         }
-                        else if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, out Disp, out RForce))
+                        else if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
                         {
                             f2 = FEM.GetDispNormInf(mf.Nodes);
                             for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
@@ -1493,9 +1647,17 @@ namespace ActiveControl.Forms
                                 Pbest[iForce, iPt] = ForceIni2[iForce];
                             }
                             FunPbest[iPt] = f2;
+                            foundFeasible = true;
                             break;
                         }
                     }
+
+                    if (!foundFeasible)
+                    {
+                        mf.PrintString($"警告：粒子 {iPt + 1} 初始化未找到可行解，已尝试 {maxAttempts} 次。可能需要调整约束条件或增加搜索范围。");
+                        // 这里可以选择使用最后一次尝试的值，或者跳过该粒子
+                    }
+
                     for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)     // 粒子速度初始化
                         Vel[iForce, iPt] = rd.NextDouble() * (VelMax[iForce] - VelMin[iForce]) + VelMin[iForce];
                 }
@@ -1560,7 +1722,7 @@ namespace ActiveControl.Forms
 
                         // 当前轴力冲突检验
                         double f;
-                        if (FEM.Check(ForceIni, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, out Disp, out RForce))
+                        if (FEM.Check(ForceIni, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
                         {
                             f = FEM.GetDispNormInf(mf.Nodes);
                             if (f < FunPbest[iPt])     // 校核是否优于个体历史最优
@@ -1586,7 +1748,7 @@ namespace ActiveControl.Forms
 
                 // 搜索结束，检查搜索结果：若满足条件，给出各个轴力；若不满足，在屏幕上打出提示
                 //if (MinDef < EpsDefor * (ElevOfGround - curElev) && flag)
-                if (FEM.Check(Gbest, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, out Disp, out RForce))
+                if (FEM.Check(Gbest, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
                 {
                     Vector<double> DeltaInstr = ForceCohMat.Solve(Gbest);
                     for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
