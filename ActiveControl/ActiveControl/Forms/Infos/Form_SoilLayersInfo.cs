@@ -73,8 +73,55 @@ namespace ActiveControl.Forms
                     // 读文件流
                     StreamReader sr = new StreamReader(openFileDialog.FileName, Encoding.UTF8);
                     char[] deli = { '\t' };
-                    string line = sr.ReadLine();                             // 读去表头
-                    if (line == "土层编号\t厚度\tc\tphi\tK0\tEs\tm\t重度\t土性")
+                    string line = sr.ReadLine();                             // 读取第一行
+
+                    // 判断文件格式：检查是否有地下水信息
+                    bool hasWaterInfo = false;
+                    if (line.StartsWith("EnableWater"))
+                    {
+                        hasWaterInfo = true;
+
+                        // 读取地下水开关
+                        string[] waterEnableUnit = line.Split(deli, StringSplitOptions.RemoveEmptyEntries);
+                        if (waterEnableUnit.Length >= 2)
+                        {
+                            bool enableWater = waterEnableUnit[1] == "True";
+                            chkEnableWater.Checked = enableWater;
+                            Loadcase.EnableWater = enableWater;
+                        }
+
+                        // 读取地下水位标高
+                        line = sr.ReadLine();
+                        if (line != null && line.StartsWith("WaterTableElev"))
+                        {
+                            string[] waterElevUnit = line.Split(deli, StringSplitOptions.RemoveEmptyEntries);
+                            if (waterElevUnit.Length >= 2)
+                            {
+                                double waterElev = Convert.ToDouble(waterElevUnit[1]);
+                                if (waterElev > -9999)
+                                {
+                                    tbWaterTableElev.Text = waterElev.ToString("0.00");
+                                    Loadcase.WaterTableElev = waterElev;
+                                }
+                            }
+                        }
+
+                        // 读取土层数据表头
+                        line = sr.ReadLine();
+                    }
+                    else
+                    {
+                        // 老格式文件，没有地下水信息
+                        chkEnableWater.Checked = false;
+                        Loadcase.EnableWater = false;
+                        Loadcase.WaterTableElev = -9999;
+                    }
+
+                    // 判断土层数据格式：新格式（10列）或老格式（9列）
+                    bool isNewFormat = (line == "土层编号\t厚度\tc\tphi\tK0\tEs\tm\t重度\t土性\t水土模式");
+                    bool isOldFormat = (line == "土层编号\t厚度\tc\tphi\tK0\tEs\tm\t重度\t土性");
+
+                    if (isNewFormat || isOldFormat)
                     {
                         while (sr.Peek() > 0)
                         {
@@ -88,7 +135,19 @@ namespace ActiveControl.Forms
                             double M = Convert.ToDouble(unit[6]);
                             double Gamma = Convert.ToDouble(unit[7]);
                             string Type = unit[8];
-                            SoilLayer sl = new SoilLayer(Thick, C, Phi, K0, Es, M, Gamma, Type);
+
+                            SoilLayer sl;
+                            if (isNewFormat && unit.Length >= 10)
+                            {
+                                // 新格式：读取水土模式
+                                string waterSoilMode = unit[9];
+                                sl = new SoilLayer(Thick, C, Phi, K0, Es, M, Gamma, Type, waterSoilMode);
+                            }
+                            else
+                            {
+                                // 老格式：水土模式设为"自动"
+                                sl = new SoilLayer(Thick, C, Phi, K0, Es, M, Gamma, Type, "自动（根据土性）");
+                            }
                             mf.SoilLayers.Add(sl);
                         }
                         outputSoilLayersInfoToLV();
@@ -117,7 +176,22 @@ namespace ActiveControl.Forms
             if (saveFileDialog.ShowDialog() == DialogResult.OK)
             {
                 StreamWriter sw = new StreamWriter(saveFileDialog.FileName, false, Encoding.UTF8);      // false 指若已存在同名文件则进行覆盖
-                sw.WriteLine("土层编号\t厚度\tc\tphi\tK0\tEs\tm\t重度\t土性");                          // 写入表头
+
+                // 写入地下水信息
+                sw.WriteLine("EnableWater\t" + chkEnableWater.Checked.ToString());
+                if (chkEnableWater.Checked && !string.IsNullOrEmpty(tbWaterTableElev.Text))
+                {
+                    sw.WriteLine("WaterTableElev\t" + tbWaterTableElev.Text);
+                }
+                else
+                {
+                    sw.WriteLine("WaterTableElev\t-9999");
+                }
+
+                // 写入土层数据表头
+                sw.WriteLine("土层编号\t厚度\tc\tphi\tK0\tEs\tm\t重度\t土性\t水土模式");
+
+                // 写入土层数据
                 for (int i = 0; i < mf.SoilLayers.Count(); i++)
                 {
                     sw.WriteLine((i + 1).ToString("0") + "\t" + mf.SoilLayers[i].Thick.ToString("0.00")
@@ -127,7 +201,8 @@ namespace ActiveControl.Forms
                                                        + "\t" + mf.SoilLayers[i].Es.ToString("0.00")
                                                        + "\t" + mf.SoilLayers[i].M.ToString("0.00")
                                                        + "\t" + mf.SoilLayers[i].Gamma.ToString("0.00")
-                                                       + "\t" + mf.SoilLayers[i].Type);
+                                                       + "\t" + mf.SoilLayers[i].Type
+                                                       + "\t" + mf.SoilLayers[i].WaterSoilMode);
                 }
                 sw.Close();
                 mf.PrintString("土层数据写入成功！文件目录：\r\n" + saveFileDialog.FileName);
@@ -139,13 +214,13 @@ namespace ActiveControl.Forms
             try
             {
                 // 读取输入栏数据
-                double Thick = int.Parse(tbSoilLayersThick.Text);
-                double C = int.Parse(tbSoilLayersC.Text);
-                double Phi = int.Parse(tbSoilLayersPhi.Text);
-                double K0 = int.Parse(tbSoilLayersK0.Text);
-                double Es = int.Parse(tbSoilLayersEs.Text);
-                double M = int.Parse(tbSoilLayersM.Text);
-                double Gamma = int.Parse(tbSoilLayersGamma.Text);
+                double Thick = double.Parse(tbSoilLayersThick.Text);
+                double C = double.Parse(tbSoilLayersC.Text);
+                double Phi = double.Parse(tbSoilLayersPhi.Text);
+                double K0 = double.Parse(tbSoilLayersK0.Text);
+                double Es = double.Parse(tbSoilLayersEs.Text);
+                double M = double.Parse(tbSoilLayersM.Text);
+                double Gamma = double.Parse(tbSoilLayersGamma.Text);
                 string Type = cbSoilLayersType.Text;
 
                 // 并入土层信息
@@ -175,21 +250,33 @@ namespace ActiveControl.Forms
             try
             {
                 // 读取输入栏数据
-                double Thick = int.Parse(tbSoilLayersThick.Text);
-                double C = int.Parse(tbSoilLayersC.Text);
-                double Phi = int.Parse(tbSoilLayersPhi.Text);
-                double K0 = int.Parse(tbSoilLayersK0.Text);
-                double Es = int.Parse(tbSoilLayersEs.Text);
-                double M = int.Parse(tbSoilLayersM.Text);
-                double Gamma = int.Parse(tbSoilLayersGamma.Text);
+                double Thick = double.Parse(tbSoilLayersThick.Text);
+                double C = double.Parse(tbSoilLayersC.Text);
+                double Phi = double.Parse(tbSoilLayersPhi.Text);
+                double K0 = double.Parse(tbSoilLayersK0.Text);
+                double Es = double.Parse(tbSoilLayersEs.Text);
+                double M = double.Parse(tbSoilLayersM.Text);
+                double Gamma = double.Parse(tbSoilLayersGamma.Text);
                 string Type = cbSoilLayersType.Text;
 
                 if (Thick * Phi * K0 * Es * M * Gamma == 0 || Type == "")
                     MessageBox.Show("数据不全，请检查后重新输入！", "错误");
                 else
                 {
-                    // 并入土层信息
-                    SoilLayer s = new SoilLayer(Thick, C, Phi, K0, Es, M, Gamma, Type);
+                    // 创建土层对象
+                    SoilLayer s;
+                    if (chkEnableWater.Checked && cbWaterSoilMode.SelectedIndex >= 0)
+                    {
+                        // 考虑地下水：使用带水土模式的构造函数
+                        string waterSoilMode = cbWaterSoilMode.Text;
+                        s = new SoilLayer(Thick, C, Phi, K0, Es, M, Gamma, Type, waterSoilMode);
+                    }
+                    else
+                    {
+                        // 不考虑地下水：使用原构造函数
+                        s = new SoilLayer(Thick, C, Phi, K0, Es, M, Gamma, Type);
+                    }
+
                     mf.SoilLayers.Add(s);
                     outputSoilLayersInfoToLV();
 
@@ -202,6 +289,7 @@ namespace ActiveControl.Forms
                     tbSoilLayersM.Text = "";
                     tbSoilLayersGamma.Text = "";
                     cbSoilLayersType.Text = "";
+                    cbWaterSoilMode.SelectedIndex = -1;
                     mf.PrintString("土层信息追加成功！");
                 }
             }
@@ -226,6 +314,7 @@ namespace ActiveControl.Forms
                 li.SubItems.Add(mf.SoilLayers[i].M.ToString("0.00"));
                 li.SubItems.Add(mf.SoilLayers[i].Gamma.ToString("0.00"));
                 li.SubItems.Add(mf.SoilLayers[i].Type);
+                li.SubItems.Add(mf.SoilLayers[i].WaterSoilMode);  // 新增：显示水土模式
                 lvSoilLayers.Items.Add(li);
             }
         }
@@ -233,6 +322,33 @@ namespace ActiveControl.Forms
         private void Form_SoilLayersInfo_Load(object sender, EventArgs e)
         {
 
+        }
+
+        private void chkEnableWater_CheckedChanged(object sender, EventArgs e)      // 【事件】考虑地下水复选框改变
+        {
+            tbWaterTableElev.Enabled = chkEnableWater.Checked;
+            cbWaterSoilMode.Enabled = chkEnableWater.Checked;
+        }
+
+        private void cbSoilLayersType_SelectedIndexChanged(object sender, EventArgs e)  // 【事件】土性选择改变，自动推荐水土模式
+        {
+            if (!chkEnableWater.Checked) return;
+
+            string soilType = cbSoilLayersType.Text;
+
+            // 根据土性自动推荐水土模式
+            if (soilType == "杂填土" || soilType == "砂质粉土" || soilType == "粉砂")
+            {
+                cbWaterSoilMode.SelectedIndex = 1;  // 水土分算
+            }
+            else if (soilType == "粉质黏土" || soilType == "淤泥质粘土")
+            {
+                cbWaterSoilMode.SelectedIndex = 2;  // 水土合算
+            }
+            else
+            {
+                cbWaterSoilMode.SelectedIndex = 0;  // 自动（根据土性）
+            }
         }
 
 

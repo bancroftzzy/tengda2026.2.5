@@ -60,7 +60,14 @@
             this.chSoilLayersM = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.chSoilLayersGamma = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.chSoilLayersType = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.chSoilLayersWaterSoilMode = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.btnClearSoilLayerInfo = new System.Windows.Forms.Button();
+            this.chkEnableWater = new System.Windows.Forms.CheckBox();
+            this.lblWaterTableElev = new System.Windows.Forms.Label();
+            this.tbWaterTableElev = new System.Windows.Forms.TextBox();
+            this.lblWaterUnit = new System.Windows.Forms.Label();
+            this.lblWaterSoilMode = new System.Windows.Forms.Label();
+            this.cbWaterSoilMode = new System.Windows.Forms.ComboBox();
             this.SuspendLayout();
             // 
             // btnWriteSoilLayerInfo
@@ -75,11 +82,11 @@
             this.btnWriteSoilLayerInfo.Click += new System.EventHandler(this.btnWriteSoilLayerInfo_Click);
             // 
             // label9
-            // 
+            //
             this.label9.AutoSize = true;
             this.label9.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label9.ForeColor = System.Drawing.SystemColors.ButtonShadow;
-            this.label9.Location = new System.Drawing.Point(20, 41);
+            this.label9.Location = new System.Drawing.Point(20, 70);
             this.label9.Name = "label9";
             this.label9.Size = new System.Drawing.Size(225, 20);
             this.label9.TabIndex = 63;
@@ -123,6 +130,7 @@
             this.cbSoilLayersType.Name = "cbSoilLayersType";
             this.cbSoilLayersType.Size = new System.Drawing.Size(142, 28);
             this.cbSoilLayersType.TabIndex = 8;
+            this.cbSoilLayersType.SelectedIndexChanged += new System.EventHandler(this.cbSoilLayersType_SelectedIndexChanged);
             // 
             // label8
             // 
@@ -300,7 +308,8 @@
             this.chSoilLayersEs,
             this.chSoilLayersM,
             this.chSoilLayersGamma,
-            this.chSoilLayersType});
+            this.chSoilLayersType,
+            this.chSoilLayersWaterSoilMode});
             this.lvSoilLayers.Cursor = System.Windows.Forms.Cursors.Arrow;
             this.lvSoilLayers.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lvSoilLayers.FullRowSelect = true;
@@ -361,12 +370,17 @@
             this.chSoilLayersGamma.Width = 90;
             // 
             // chSoilLayersType
-            // 
+            //
             this.chSoilLayersType.Text = "土性";
             this.chSoilLayersType.Width = 160;
-            // 
+            //
+            // chSoilLayersWaterSoilMode
+            //
+            this.chSoilLayersWaterSoilMode.Text = "水土模式";
+            this.chSoilLayersWaterSoilMode.Width = 140;
+            //
             // btnClearSoilLayerInfo
-            // 
+            //
             this.btnClearSoilLayerInfo.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.btnClearSoilLayerInfo.Location = new System.Drawing.Point(669, 37);
             this.btnClearSoilLayerInfo.Name = "btnClearSoilLayerInfo";
@@ -375,13 +389,85 @@
             this.btnClearSoilLayerInfo.Text = "清空";
             this.btnClearSoilLayerInfo.UseVisualStyleBackColor = true;
             this.btnClearSoilLayerInfo.Click += new System.EventHandler(this.btnClearSoilLayerInfo_Click);
-            // 
+            //
+            // chkEnableWater
+            //
+            this.chkEnableWater.AutoSize = true;
+            this.chkEnableWater.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chkEnableWater.Location = new System.Drawing.Point(24, 12);
+            this.chkEnableWater.Name = "chkEnableWater";
+            this.chkEnableWater.Size = new System.Drawing.Size(135, 24);
+            this.chkEnableWater.TabIndex = 64;
+            this.chkEnableWater.Text = "考虑地下水影响";
+            this.chkEnableWater.UseVisualStyleBackColor = true;
+            this.chkEnableWater.CheckedChanged += new System.EventHandler(this.chkEnableWater_CheckedChanged);
+            //
+            // lblWaterTableElev
+            //
+            this.lblWaterTableElev.AutoSize = true;
+            this.lblWaterTableElev.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblWaterTableElev.Location = new System.Drawing.Point(40, 42);
+            this.lblWaterTableElev.Name = "lblWaterTableElev";
+            this.lblWaterTableElev.Size = new System.Drawing.Size(105, 20);
+            this.lblWaterTableElev.TabIndex = 65;
+            this.lblWaterTableElev.Text = "地下水位标高";
+            //
+            // tbWaterTableElev
+            //
+            this.tbWaterTableElev.Enabled = false;
+            this.tbWaterTableElev.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.tbWaterTableElev.Location = new System.Drawing.Point(165, 39);
+            this.tbWaterTableElev.Name = "tbWaterTableElev";
+            this.tbWaterTableElev.Size = new System.Drawing.Size(70, 28);
+            this.tbWaterTableElev.TabIndex = 66;
+            //
+            // lblWaterUnit
+            //
+            this.lblWaterUnit.AutoSize = true;
+            this.lblWaterUnit.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblWaterUnit.Location = new System.Drawing.Point(240, 42);
+            this.lblWaterUnit.Name = "lblWaterUnit";
+            this.lblWaterUnit.Size = new System.Drawing.Size(30, 20);
+            this.lblWaterUnit.TabIndex = 69;
+            this.lblWaterUnit.Text = "(m)";
+            //
+            // lblWaterSoilMode
+            //
+            this.lblWaterSoilMode.AutoSize = true;
+            this.lblWaterSoilMode.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblWaterSoilMode.Location = new System.Drawing.Point(1120, 93);
+            this.lblWaterSoilMode.Name = "lblWaterSoilMode";
+            this.lblWaterSoilMode.Size = new System.Drawing.Size(75, 20);
+            this.lblWaterSoilMode.TabIndex = 67;
+            this.lblWaterSoilMode.Text = "水土模式";
+            //
+            // cbWaterSoilMode
+            //
+            this.cbWaterSoilMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.cbWaterSoilMode.Enabled = false;
+            this.cbWaterSoilMode.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.cbWaterSoilMode.FormattingEnabled = true;
+            this.cbWaterSoilMode.Items.AddRange(new object[] {
+            "自动（根据土性）",
+            "水土分算",
+            "水土合算"});
+            this.cbWaterSoilMode.Location = new System.Drawing.Point(1120, 118);
+            this.cbWaterSoilMode.Name = "cbWaterSoilMode";
+            this.cbWaterSoilMode.Size = new System.Drawing.Size(140, 28);
+            this.cbWaterSoilMode.TabIndex = 68;
+            //
             // Form_SoilLayersInfo
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.White;
-            this.ClientSize = new System.Drawing.Size(1137, 532);
+            this.ClientSize = new System.Drawing.Size(1280, 532);
+            this.Controls.Add(this.cbWaterSoilMode);
+            this.Controls.Add(this.lblWaterSoilMode);
+            this.Controls.Add(this.lblWaterUnit);
+            this.Controls.Add(this.tbWaterTableElev);
+            this.Controls.Add(this.lblWaterTableElev);
+            this.Controls.Add(this.chkEnableWater);
             this.Controls.Add(this.btnWriteSoilLayerInfo);
             this.Controls.Add(this.label9);
             this.Controls.Add(this.btnReadSoilLayerInfo);
@@ -450,6 +536,13 @@
         private System.Windows.Forms.ColumnHeader chSoilLayersM;
         private System.Windows.Forms.ColumnHeader chSoilLayersGamma;
         private System.Windows.Forms.ColumnHeader chSoilLayersType;
+        private System.Windows.Forms.ColumnHeader chSoilLayersWaterSoilMode;
         private System.Windows.Forms.Button btnClearSoilLayerInfo;
+        private System.Windows.Forms.CheckBox chkEnableWater;
+        private System.Windows.Forms.Label lblWaterTableElev;
+        private System.Windows.Forms.TextBox tbWaterTableElev;
+        private System.Windows.Forms.Label lblWaterUnit;
+        private System.Windows.Forms.Label lblWaterSoilMode;
+        private System.Windows.Forms.ComboBox cbWaterSoilMode;
     }
 }

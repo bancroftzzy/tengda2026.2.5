@@ -26,6 +26,8 @@ namespace ActiveControl
         public static int ActSupCount = 0;                      // 已激活支撑数
         public static List<int> AdjSupIndex = new List<int>();  // 可调节支撑索引
         public static List<int> SlabElemIndex = new List<int>(); // 顶板单元索引
+        public static bool EnableWater = false;                   // 是否考虑地下水
+        public static double WaterTableElev = -9999;              // 地下水位标高
 
         // 构造函数（保持向后兼容）
         public Loadcase(double excavationdepth, bool isactivesupport)

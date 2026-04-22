@@ -36,7 +36,46 @@ namespace ActiveControl
                 if (File.Exists(path))
                 {
                     StreamReader sr1 = new StreamReader(path, Encoding.UTF8);
-                    line = sr1.ReadLine();
+                    line = sr1.ReadLine();  // 读取第一行
+
+                    // 判断文件格式：检查是否有地下水信息
+                    bool hasWaterInfo = false;
+                    if (line.StartsWith("EnableWater"))
+                    {
+                        hasWaterInfo = true;
+
+                        // 读取地下水开关
+                        unit = line.Split(deli, StringSplitOptions.RemoveEmptyEntries);
+                        if (unit.Length >= 2)
+                        {
+                            Loadcase.EnableWater = (unit[1] == "True");
+                        }
+
+                        // 读取地下水位标高
+                        line = sr1.ReadLine();
+                        if (line != null && line.StartsWith("WaterTableElev"))
+                        {
+                            unit = line.Split(deli, StringSplitOptions.RemoveEmptyEntries);
+                            if (unit.Length >= 2)
+                            {
+                                Loadcase.WaterTableElev = Convert.ToDouble(unit[1]);
+                            }
+                        }
+
+                        // 读取土层数据表头
+                        line = sr1.ReadLine();
+                    }
+                    else
+                    {
+                        // 老格式文件，没有地下水信息
+                        Loadcase.EnableWater = false;
+                        Loadcase.WaterTableElev = -9999;
+                    }
+
+                    // 判断文件格式：新格式（10列）或老格式（9列）
+                    bool isNewFormat = (line == "土层编号\t厚度\tc\tphi\tK0\tEs\tm\t重度\t土性\t水土模式");
+                    bool isOldFormat = (line == "土层编号\t厚度\tc\tphi\tK0\tEs\tm\t重度\t土性");
+
                     while (sr1.Peek() > 0)
                     {
                         line = sr1.ReadLine();
@@ -49,7 +88,19 @@ namespace ActiveControl
                         double M = Convert.ToDouble(unit[6]);
                         double Gamma = Convert.ToDouble(unit[7]);
                         string Type = unit[8];
-                        SoilLayer sl = new SoilLayer(Thick, C, Phi, K0, Es, M, Gamma, Type);
+
+                        SoilLayer sl;
+                        if (isNewFormat && unit.Length >= 10)
+                        {
+                            // 新格式：读取水土模式
+                            string waterSoilMode = unit[9];
+                            sl = new SoilLayer(Thick, C, Phi, K0, Es, M, Gamma, Type, waterSoilMode);
+                        }
+                        else
+                        {
+                            // 老格式：水土模式设为"自动"
+                            sl = new SoilLayer(Thick, C, Phi, K0, Es, M, Gamma, Type, "自动（根据土性）");
+                        }
                         SoilLayers.Add(sl);
                     }
                     sr1.Close();
@@ -232,6 +283,8 @@ namespace ActiveControl
         public double ElevOfCollar;                        // 钻孔孔口标高
         public double ElevOfGround;                        // 开挖地面标高
         public double GroundLoad;                          // 地面超载，假设与围护结构距离为0
+        public bool EnableWater;                           // 是否考虑地下水
+        public double WaterTableElev;                      // 地下水位标高
         public double EpsDefor;                            // 侧向变形限值与基坑深度的比值
         public double MaxMommentOfECS1;                    // 围护结构迎土侧极限弯矩
         public double MaxMommentOfECS2;                    // 围护结构背土侧极限弯矩

@@ -3,8 +3,20 @@
   "WorkspaceRootPath": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\activecontrol\\forms\\infos\\form_otherinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|solutionrelative:activecontrol\\forms\\infos\\form_otherinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|e:\\tj\\project\\tengda\\tengda2026.2.5\\activecontrol\\activecontrol\\forms\\form_calculate.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|solutionrelative:activecontrol\\forms\\form_calculate.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\activecontrol\\forms\\infos\\form_soillayersinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|solutionrelative:activecontrol\\forms\\infos\\form_soillayersinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\activecontrol\\forms\\infos\\form_soillayersinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|solutionrelative:activecontrol\\forms\\infos\\form_soillayersinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     },
     {
       "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\activecontrol\\classes\\fem.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -15,20 +27,12 @@
       "RelativeMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|solutionrelative:activecontrol\\classes\\loadcase.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\activecontrol\\forms\\infos\\form_otherinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
-      "RelativeMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|solutionrelative:activecontrol\\forms\\infos\\form_otherinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|e:\\tj\\project\\tengda\\tengda2026.2.5\\activecontrol\\activecontrol\\forms\\form_main.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\activecontrol\\forms\\form_main.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|solutionrelative:activecontrol\\forms\\form_main.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|e:\\tj\\project\\tengda\\tengda2026.2.5\\activecontrol\\activecontrol\\forms\\form_calculate.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\activecontrol\\forms\\form_calculate.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
       "RelativeMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|solutionrelative:activecontrol\\forms\\form_calculate.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\activecontrol\\forms\\infos\\form_soillayersinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
-      "RelativeMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|solutionrelative:activecontrol\\forms\\infos\\form_soillayersinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
     },
     {
       "AbsoluteMoniker": "D:0:0:{2D9894CC-BC5A-4661-9217-85C0ABEF3910}|ActiveControl\\ActiveControl.csproj|E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\activecontrol\\classes\\node.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -106,7 +110,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 6,
+          "SelectedChildIndex": 4,
           "Children": [
             {
               "$type": "Bookmark",
@@ -118,7 +122,19 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 2,
+              "Title": "Form_SoilLayersInfo.cs",
+              "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Infos\\Form_SoilLayersInfo.cs",
+              "RelativeDocumentMoniker": "ActiveControl\\Forms\\Infos\\Form_SoilLayersInfo.cs",
+              "ToolTip": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Infos\\Form_SoilLayersInfo.cs",
+              "RelativeToolTip": "ActiveControl\\Forms\\Infos\\Form_SoilLayersInfo.cs",
+              "ViewState": "AgIAAM0AAAAAAAAAAAAkwAAAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-04-21T17:15:31.276Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
               "Title": "Form_Calculate.cs [\u8BBE\u8BA1]",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Form_Calculate.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Form_Calculate.cs",
@@ -130,7 +146,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 0,
               "Title": "Form_OtherInfo.cs [\u8BBE\u8BA1]",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Infos\\Form_OtherInfo.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Infos\\Form_OtherInfo.cs",
@@ -142,7 +158,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 9,
+              "DocumentIndex": 10,
               "Title": "Form_LoadcasesInfo.cs [\u8BBE\u8BA1]",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Infos\\Form_LoadcasesInfo.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Infos\\Form_LoadcasesInfo.cs",
@@ -153,7 +169,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 4,
               "Title": "FEM.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Classes\\FEM.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Classes\\FEM.cs",
@@ -161,25 +177,24 @@
               "RelativeToolTip": "ActiveControl\\Classes\\FEM.cs",
               "ViewState": "AgIAAEcAAAAAAAAAAAAiwDoAAAANAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-05-12T02:37:08.757Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-12T02:37:08.757Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "Form_Calculate.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Form_Calculate.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Form_Calculate.cs",
               "ToolTip": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Form_Calculate.cs",
               "RelativeToolTip": "ActiveControl\\Forms\\Form_Calculate.cs",
-              "ViewState": "AgIAAJAFAAAAAAAAAAAAAHgFAAAfAAAAAAAAAA==",
+              "ViewState": "AgIAAG4IAAAAAAAAAAAAAHsIAACFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-03-23T11:16:31.525Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 10,
+              "DocumentIndex": 11,
               "Title": "Form_LoadcasesInfo.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Infos\\Form_LoadcasesInfo.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Infos\\Form_LoadcasesInfo.cs",
@@ -191,7 +206,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 12,
+              "DocumentIndex": 13,
               "Title": "Form_SupportsInfo.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Infos\\Form_SupportsInfo.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Infos\\Form_SupportsInfo.cs",
@@ -203,7 +218,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 11,
+              "DocumentIndex": 12,
               "Title": "Form_SupportsInfo.cs [\u8BBE\u8BA1]",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Infos\\Form_SupportsInfo.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Infos\\Form_SupportsInfo.cs",
@@ -214,7 +229,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 14,
+              "DocumentIndex": 15,
               "Title": "SoilLayer.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Classes\\SoilLayer.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Classes\\SoilLayer.cs",
@@ -226,7 +241,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 15,
+              "DocumentIndex": 16,
               "Title": "Support.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Classes\\Support.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Classes\\Support.cs",
@@ -238,7 +253,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 8,
+              "DocumentIndex": 9,
               "Title": "RealConstant.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Classes\\RealConstant.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Classes\\RealConstant.cs",
@@ -250,7 +265,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 7,
+              "DocumentIndex": 8,
               "Title": "Node.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Classes\\Node.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Classes\\Node.cs",
@@ -262,7 +277,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 13,
+              "DocumentIndex": 14,
               "Title": "Material.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Classes\\Material.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Classes\\Material.cs",
@@ -274,7 +289,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 5,
               "Title": "Loadcase.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Classes\\Loadcase.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Classes\\Loadcase.cs",
@@ -282,12 +297,11 @@
               "RelativeToolTip": "ActiveControl\\Classes\\Loadcase.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-05-12T02:37:16.263Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-12T02:37:16.263Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 16,
+              "DocumentIndex": 17,
               "Title": "Element.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Classes\\Element.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Classes\\Element.cs",
@@ -299,7 +313,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 17,
+              "DocumentIndex": 18,
               "Title": "UserProfile.xml",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\bin\\Debug\\ImportData\\UserProfile.xml",
               "RelativeDocumentMoniker": "ActiveControl\\bin\\Debug\\ImportData\\UserProfile.xml",
@@ -311,7 +325,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 3,
               "Title": "Form_SoilLayersInfo.cs [\u8BBE\u8BA1]",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Infos\\Form_SoilLayersInfo.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Infos\\Form_SoilLayersInfo.cs",
@@ -322,7 +336,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 20,
+              "DocumentIndex": 21,
               "Title": "Form_ChangePassword.cs [\u8BBE\u8BA1]",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Welcome\\Form_ChangePassword.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Welcome\\Form_ChangePassword.cs",
@@ -332,7 +346,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 21,
+              "DocumentIndex": 22,
               "Title": "Form_Signup.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Welcome\\Form_Signup.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Welcome\\Form_Signup.cs",
@@ -344,7 +358,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 19,
+              "DocumentIndex": 20,
               "Title": "Form_Welcome.cs [\u8BBE\u8BA1]",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Welcome\\Form_Welcome.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Welcome\\Form_Welcome.cs",
@@ -354,7 +368,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 23,
+              "DocumentIndex": 24,
               "Title": "Form_ChangePassword.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Welcome\\Form_ChangePassword.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Welcome\\Form_ChangePassword.cs",
@@ -366,7 +380,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 18,
+              "DocumentIndex": 19,
               "Title": "Form_Welcome.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Welcome\\Form_Welcome.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Welcome\\Form_Welcome.cs",
@@ -378,7 +392,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 6,
               "Title": "Form_Main.cs",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Form_Main.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Form_Main.cs",
@@ -386,12 +400,11 @@
               "RelativeToolTip": "ActiveControl\\Forms\\Form_Main.cs",
               "ViewState": "AgIAACsBAAAAAAAAAAAwwEABAAAQAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-05-12T02:20:58.5Z",
-              "EditorCaption": ""
+              "WhenOpened": "2025-05-12T02:20:58.5Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 22,
+              "DocumentIndex": 23,
               "Title": "Form_Signup.cs [\u8BBE\u8BA1]",
               "DocumentMoniker": "E:\\TJ\\project\\tengda\\tengda2026.2.5\\ActiveControl\\ActiveControl\\Forms\\Welcome\\Form_Signup.cs",
               "RelativeDocumentMoniker": "ActiveControl\\Forms\\Welcome\\Form_Signup.cs",

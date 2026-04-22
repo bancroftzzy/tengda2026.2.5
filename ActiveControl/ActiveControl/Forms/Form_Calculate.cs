@@ -336,7 +336,7 @@ namespace ActiveControl.Forms
                 foreach (LocalLoad load in mf.LocalLoads)                                // 局部荷载影响位置节点
                 {
                    
-                    double ecsBottom = mf.ElevOfGround - mf.LengthOfECS;
+                    double localLoadEcsBottom = mf.ElevOfGround - mf.LengthOfECS;
                     
                     // 计算近端影响深度 z1
                     double a_near = load.DistToECS;
@@ -362,7 +362,7 @@ namespace ActiveControl.Forms
                             a_near -= delta_a;
                             cElev -= layerThick;
                             
-                            if (cElev <= ecsBottom)
+                            if (cElev <= localLoadEcsBottom)
                             {
                                 z1_valid = false;
                                 break;
@@ -371,13 +371,13 @@ namespace ActiveControl.Forms
                     }
                     
                     // 如果z1有效且在围护结构范围内，添加节点
-                    if (z1_valid && z1 > ecsBottom && z1 < mf.ElevOfGround)
+                    if (z1_valid && z1 > localLoadEcsBottom && z1 < mf.ElevOfGround)
                     {
                         load.Z1 = z1; //保存z1
                         mf.Nodes.Add(new Node(mf.Nodes.Count() + 1, 0.0, z1));
                         mf.PrintString($"    近端影响深度 z1 = {z1:F3}m，已添加节点");
                     }
-                    else if (!z1_valid || z1 <= ecsBottom)
+                    else if (!z1_valid || z1 <= localLoadEcsBottom)
                     {
                         mf.PrintString($"    警告：局部荷载 {load.No} 近端距离太远，影响深度超出围护结构范围");
                     }
@@ -406,7 +406,7 @@ namespace ActiveControl.Forms
                             a_far -= delta_a;
                             cElev -= layerThick;
                             
-                            if (cElev <= ecsBottom)
+                            if (cElev <= localLoadEcsBottom)
                             {
                                 z2_valid = false;
                                 break;
@@ -415,29 +415,45 @@ namespace ActiveControl.Forms
                     }
                     
                     // 如果z2有效且在围护结构范围内，添加节点
-                    if (z2_valid && z2 > ecsBottom && z2 < mf.ElevOfGround)
+                    if (z2_valid && z2 > localLoadEcsBottom && z2 < mf.ElevOfGround)
                     {
                         load.Z2 = z2;
                         mf.Nodes.Add(new Node(mf.Nodes.Count() + 1, 0.0, z2));
                         mf.PrintString($"    远端影响深度 z2 = {z2:F3}m，已添加节点");
                     }
-                    else if (!z2_valid || z2 <= ecsBottom)
+                    else if (!z2_valid || z2 <= localLoadEcsBottom)
                     {
-                        z2 = ecsBottom;
+                        z2 = localLoadEcsBottom;
                         load.Z2 = z2;
                         mf.PrintString($"    提示：局部荷载 {load.No} 远端超出围护结构，影响范围截断到底部 {z2:F3}m");
                     }
-                    
+
                     // 输出影响范围总结
-                    if (z1_valid && z1 > ecsBottom)
+                    if (z1_valid && z1 > localLoadEcsBottom)
                     {
                         mf.PrintString($"    局部荷载 {load.No} 影响标高范围: {z1:F3}m ~ {z2:F3}m");
                     }
                 }
-                
+
                 mf.PrintString("局部荷载影响位置节点添加完成");
             }
             // ========== 局部荷载影响位置节点添加完成 ==========
+
+            // ========== 新增：地下水位线节点 ==========
+            if (Loadcase.EnableWater && Loadcase.WaterTableElev > -9999)
+            {
+                double waterElev = Loadcase.WaterTableElev;
+                double waterNodeEcsTop = mf.ElevOfGround;
+                double waterNodeEcsBottom = mf.ElevOfGround - mf.LengthOfECS;
+
+                // 如果水位线在围护结构范围内，添加节点
+                if (waterElev > waterNodeEcsBottom && waterElev < waterNodeEcsTop)
+                {
+                    mf.Nodes.Add(new Node(mf.Nodes.Count() + 1, 0.0, waterElev));
+                    mf.PrintString($"地下水位标高 {waterElev:F3}m，已添加水位线节点");
+                }
+            }
+            // ========== 地下水位线节点添加完成 ==========
 
             mf.Nodes = mf.NodesDistinct(mf.Nodes);                                       // 节点列表去重
             mf.Nodes = mf.Nodes.OrderByDescending(o => o.Ny).ToList();                   // 按降序排序
@@ -620,38 +636,118 @@ namespace ActiveControl.Forms
 
             double Sy = mf.GroundLoad * 1e3;
 
-            for (int i = 0; i < CM_Elem_ECS.Count(); i++)            // 土压力
+
+
+            if (!(Loadcase.WaterTableElev > mf.ElevOfGround - mf.LengthOfECS && Loadcase.WaterTableElev < mf.ElevOfGround && Loadcase.EnableWater))
             {
-                double cElev = mf.ElevOfCollar;                      // 获取土层
-                foreach (SoilLayer j in mf.SoilLayers)
+                // ==========不考虑地下水影响========== //
+                for (int i = 0; i < CM_Elem_ECS.Count(); i++)            // 土压力
                 {
-                    cElev -= j.Thick;
-                    if (mf.Nodes[i].Ny > cElev)
+                    double cElev = mf.ElevOfCollar;                      // 获取土层
+                    foreach (SoilLayer j in mf.SoilLayers)
                     {
-                        // 计算单元两端土压力荷载集度
-                        double Ka = Math.Pow(Math.Tan((45 - j.Phi / 2) * Math.PI / 180), 2);       // 主动土压力系数
-                        double qi = Math.Max(Sy * Ka - 2 * j.C * Math.Pow(Ka, 0.5) * 1e3, 0);
-                        Sy += (mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny) * j.Gamma * 1e3;
-                        double qj = Math.Max(Sy * Ka - 2 * j.C * Math.Pow(Ka, 0.5) * 1e3, 0);
+                        cElev -= j.Thick;
+                        if (mf.Nodes[i].Ny > cElev)
+                        {
+                            // 计算单元两端土压力荷载集度
+                            double Ka = Math.Pow(Math.Tan((45 - j.Phi / 2) * Math.PI / 180), 2);       // 主动土压力系数
+                            double qi = Math.Max(Sy * Ka - 2 * j.C * Math.Pow(Ka, 0.5) * 1e3, 0);
+                            Sy += (mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny) * j.Gamma * 1e3;
+                            double qj = Math.Max(Sy * Ka - 2 * j.C * Math.Pow(Ka, 0.5) * 1e3, 0);
 
-                        // 将节间荷载转化为节点荷载
-                        double tempFyi = -(7.0 * qi + 3.0 * qj) / 20.0 * (mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny);
-                        double tempMomi = (3.0 * qi + 2.0 * qj) / 60.0 * Math.Pow(mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny, 2);
-                        double tempFyj = -(3.0 * qi + 7.0 * qj) / 20.0 * (mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny);
-                        double tempMomj = -(2.0 * qi + 3.0 * qj) / 60.0 * Math.Pow(mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny, 2);
+                            // 将节间荷载转化为节点荷载
+                            double tempFyi = -(7.0 * qi + 3.0 * qj) / 20.0 * (mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny);
+                            double tempMomi = (3.0 * qi + 2.0 * qj) / 60.0 * Math.Pow(mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny, 2);
+                            double tempFyj = -(3.0 * qi + 7.0 * qj) / 20.0 * (mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny);
+                            double tempMomj = -(2.0 * qi + 3.0 * qj) / 60.0 * Math.Pow(mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny, 2);
 
-                        mf.Elements[CM_Elem_ECS[i]].iFy0 = tempFyi;
-                        mf.Elements[CM_Elem_ECS[i]].jFy0 = tempFyj;
-                        mf.Elements[CM_Elem_ECS[i]].iMom0 = tempMomi;
-                        mf.Elements[CM_Elem_ECS[i]].jMom0 = tempMomj;
+                            mf.Elements[CM_Elem_ECS[i]].iFy0 = tempFyi;
+                            mf.Elements[CM_Elem_ECS[i]].jFy0 = tempFyj;
+                            mf.Elements[CM_Elem_ECS[i]].iMom0 = tempMomi;
+                            mf.Elements[CM_Elem_ECS[i]].jMom0 = tempMomj;
 
-                        Fs[i * 3] += tempFyi;
-                        Fs[i * 3 + 2] += tempMomi;
-                        Fs[(i + 1) * 3] += tempFyj;
-                        Fs[(i + 1) * 3 + 2] += tempMomj;
-                        break;
+                            Fs[i * 3] += tempFyi;
+                            Fs[i * 3 + 2] += tempMomi;
+                            Fs[(i + 1) * 3] += tempFyj;
+                            Fs[(i + 1) * 3 + 2] += tempMomj;
+                            break;
+                        }
                     }
                 }
+            }
+            else
+            {
+                    // ========== 考虑地下水影响：根据水土模式计算 ==========
+                for (int i = 0; i < CM_Elem_ECS.Count(); i++)
+                {
+                    double cElev = mf.ElevOfCollar;
+                    foreach (SoilLayer j in mf.SoilLayers)
+                    {
+                        cElev -= j.Thick;
+                        if (mf.Nodes[i].Ny > cElev)
+                        {
+                            // 确定使用的重度和水土模式
+                            double gamma_to_use = j.Gamma;
+                            string mode = j.WaterSoilMode;
+                            
+                            // 判断单元的上节点是否在水位以下
+                            if (mf.Nodes[i].Ny < Loadcase.WaterTableElev)
+                            {
+                                // 处理"自动"模式
+                                if (mode == "自动" || mode == "自动（根据土性）")
+                                {
+                                    if (j.Type == "杂填土" || j.Type == "砂质粉土" || j.Type == "粉砂")
+                                        mode = "水土分算";
+                                    else
+                                        mode = "水土合算";
+                                }
+                                
+                                // 根据水土模式选择重度
+                                if (mode == "水土分算")
+                                    gamma_to_use = j.GammaEff;
+                                else if (mode == "水土合算")
+                                    gamma_to_use = j.GammaSat;
+                            }
+                            
+                            // 计算土压力
+                            double Ka = Math.Pow(Math.Tan((45 - j.Phi / 2) * Math.PI / 180), 2);
+                            double qi = Math.Max(Sy * Ka - 2 * j.C * Math.Pow(Ka, 0.5) * 1e3, 0);
+                            Sy += (mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny) * gamma_to_use * 1e3;
+                            double qj = Math.Max(Sy * Ka - 2 * j.C * Math.Pow(Ka, 0.5) * 1e3, 0);
+                            
+                            // 水土分算时，额外计算水压力
+                            double qi_water = 0, qj_water = 0;
+                            if (mode == "水土分算")
+                            {
+                                if (mf.Nodes[i].Ny < Loadcase.WaterTableElev)
+                                    qi_water = 9.81 * (Loadcase.WaterTableElev - mf.Nodes[i].Ny) * 1e3;
+                                if (mf.Nodes[i + 1].Ny < Loadcase.WaterTableElev)
+                                    qj_water = 9.81 * (Loadcase.WaterTableElev - mf.Nodes[i + 1].Ny) * 1e3;
+                            }
+                            
+                            // 总压力 = 土压力 + 水压力
+                            double qi_total = qi + qi_water;
+                            double qj_total = qj + qj_water;
+                            
+                            // 将节间荷载转化为节点荷载
+                            double tempFyi = -(7.0 * qi_total + 3.0 * qj_total) / 20.0 * (mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny);
+                            double tempMomi = (3.0 * qi_total + 2.0 * qj_total) / 60.0 * Math.Pow(mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny, 2);
+                            double tempFyj = -(3.0 * qi_total + 7.0 * qj_total) / 20.0 * (mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny);
+                            double tempMomj = -(2.0 * qi_total + 3.0 * qj_total) / 60.0 * Math.Pow(mf.Nodes[i].Ny - mf.Nodes[i + 1].Ny, 2);
+
+                            mf.Elements[CM_Elem_ECS[i]].iFy0 = tempFyi;
+                            mf.Elements[CM_Elem_ECS[i]].jFy0 = tempFyj;
+                            mf.Elements[CM_Elem_ECS[i]].iMom0 = tempMomi;
+                            mf.Elements[CM_Elem_ECS[i]].jMom0 = tempMomj;
+
+                            Fs[i * 3] += tempFyi;
+                            Fs[i * 3 + 2] += tempMomi;
+                            Fs[(i + 1) * 3] += tempFyj;
+                            Fs[(i + 1) * 3 + 2] += tempMomj;
+                            break;
+            }
+        }
+    }
             }
             // // 局部荷载（滑动面传递法）
             // if (mf.LocalLoads.Count > 0)
@@ -1100,7 +1196,7 @@ namespace ActiveControl.Forms
                         }
                     }
 
-                    // 打印Force0、ForceMax、ForceMin
+                    // 打印Force0、ForceMax、ForceMin 
                     Console.WriteLine("=== 支撑轴力范围 ===");
                     Console.Write("Force0 (当前轴力): [");
                     for (int i = 0; i < Force0.Count; i++)
@@ -2043,6 +2139,17 @@ namespace ActiveControl.Forms
         }
         private Matrix<double> GetCohMat()       // 计算轴力相干性影响矩阵
         {
+            for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
+            {
+                var elem = mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]];
+                Console.WriteLine($"支撑 {i}: Emodulus={elem.Material.Emodulus}, Area={elem.RealConstant.Area}");
+                
+                if (elem.Material.Emodulus == 0 || elem.RealConstant.Area == 0)
+                {
+                    mf.PrintString($"警告：支撑 {i} 的参数异常！Emodulus={elem.Material.Emodulus}, Area={elem.RealConstant.Area}");
+                }
+            }
+    
             Matrix<double> ForceCohMat = Matrix<double>.Build.Dense(Loadcase.AdjSupIndex.Count(), Loadcase.AdjSupIndex.Count());
             FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
             for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)

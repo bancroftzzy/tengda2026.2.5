@@ -18,6 +18,11 @@ namespace ActiveControl
         public double Gamma;
         public string Type;
 
+                // 水土计算相关参数（新增）
+        public double GammaSat;         // 饱和重度 (kN/m³)
+        public double GammaEff;         // 有效重度 (kN/m³)
+        public string WaterSoilMode;    // 水土计算模式："自动（根据土性）"、"水土分算"、"水土合算"
+
         // 邓肯-张模型参数
         public double K_Duncan;      // 模量系数（无量纲）
         public double n_Duncan;      // 模量指数（无量纲）
@@ -40,12 +45,65 @@ namespace ActiveControl
             Gamma = gamma;
             Type = type;
             
+            // 根据土性估算饱和重度
+            if (type == "杂填土" || type == "砂质粉土" || type == "粉砂")
+            {
+                // 砂性土和杂填土：比较松散，饱和后重度增加较多
+                GammaSat = gamma + 2.5;
+            }
+            else
+            {
+                // 粘性土：比较密实，饱和后重度增加较少
+                GammaSat = gamma + 1.5;
+            }
+            
+            GammaEff = GammaSat - 9.81;  // 自动计算有效重度
+            
+            // 根据土性自动设置默认水土模式
+            WaterSoilMode = GetDefaultWaterSoilMode(type);
+                        
             // 默认使用线性模型
             UseDuncanChang = false;
             
             // 根据土类设置默认邓肯-张参数
             SetDefaultDuncanChangParameters();
         }
+        
+        // 新增构造函数（支持饱和重度和水土模式）
+        public SoilLayer(double thick, double c, double phi, double k0, double es, double m, 
+                         double gamma, string type, string waterSoilMode)
+        {
+            Thick = thick;
+            C = c;
+            Phi = phi;
+            K0 = k0;
+            Es = es;
+            M = m;
+            Gamma = gamma;
+            Type = type;
+            
+            // 根据土性估算饱和重度（和老构造函数一样的逻辑）
+            if (type == "杂填土" || type == "砂质粉土" || type == "粉砂")
+            {
+                GammaSat = gamma + 2.5;
+            }
+            else
+            {
+                GammaSat = gamma + 1.5;
+            }
+            
+            GammaEff = GammaSat - 9.81;  // 自动计算有效重度
+            
+
+            WaterSoilMode = waterSoilMode;
+            
+            // 默认使用线性模型
+            UseDuncanChang = false;
+            
+            // 根据土类设置默认邓肯-张参数
+            SetDefaultDuncanChangParameters();
+        }
+
         
         /// <summary>
         /// 根据土层类型设置默认的邓肯-张参数
@@ -119,5 +177,24 @@ namespace ActiveControl
                 K_Duncan = (K_Duncan + estimatedK) / 2.0;
             }
         }
+        /// <summary>
+        /// 根据土性推荐默认水土模式
+        /// </summary>
+        private string GetDefaultWaterSoilMode(string soilType)
+        {
+            // 水土分算：杂填土、砂质粉土、粉砂
+            if (soilType == "杂填土" || soilType == "砂质粉土" || soilType == "粉砂")
+            {
+                return "水土分算";
+            }
+            else
+            {
+                // 水土合算：粉质黏土、淤泥质粘土
+                return "水土合算";
+            }
+        }
     }
 }
+
+
+

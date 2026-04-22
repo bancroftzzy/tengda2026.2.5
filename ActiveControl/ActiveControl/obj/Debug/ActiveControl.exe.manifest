@@ -42,14 +42,14 @@
     </dependentAssembly>
   </dependency>
   <dependency>
-    <dependentAssembly dependencyType="install" allowDelayedBinding="true" codebase="ActiveControl.exe" size="4163584">
+    <dependentAssembly dependencyType="install" allowDelayedBinding="true" codebase="ActiveControl.exe" size="4169728">
       <assemblyIdentity name="ActiveControl" version="1.0.0.0" language="neutral" processorArchitecture="amd64" />
       <hash>
         <dsig:Transforms>
           <dsig:Transform Algorithm="urn:schemas-microsoft-com:HashTransforms.Identity" />
         </dsig:Transforms>
         <dsig:DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha256" />
-        <dsig:DigestValue>IGMaTm8A+ZJ8Qzk2uXorA2S8+ffOLfyV09a6q+h7Z/0=</dsig:DigestValue>
+        <dsig:DigestValue>F6t9y1vOcJ23ZaTEkue5f2DMz8sKZbTdCbP/5sYoz+s=</dsig:DigestValue>
       </hash>
     </dependentAssembly>
   </dependency>
