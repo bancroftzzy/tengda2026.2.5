@@ -106,6 +106,19 @@ namespace ActiveControl.Forms
                             }
                         }
 
+                        // 读取非线性土弹簧开关（新增）
+                        line = sr.ReadLine();
+                        if (line != null && line.StartsWith("UseNonlinearSoilSpring"))
+                        {
+                            string[] nonlinearUnit = line.Split(deli, StringSplitOptions.RemoveEmptyEntries);
+                            if (nonlinearUnit.Length >= 2)
+                            {
+                                bool useNonlinear = nonlinearUnit[1] == "True";
+                                chkEnableNonlinear.Checked = useNonlinear;
+                                Loadcase.UseNonlinearSoilSpring = useNonlinear;
+                            }
+                        }
+
                         // 读取土层数据表头
                         line = sr.ReadLine();
                     }
@@ -115,6 +128,8 @@ namespace ActiveControl.Forms
                         chkEnableWater.Checked = false;
                         Loadcase.EnableWater = false;
                         Loadcase.WaterTableElev = -9999;
+                        chkEnableNonlinear.Checked = false;
+                        Loadcase.UseNonlinearSoilSpring = false;
                     }
 
                     // 判断土层数据格式：新格式（10列）或老格式（9列）
@@ -187,6 +202,9 @@ namespace ActiveControl.Forms
                 {
                     sw.WriteLine("WaterTableElev\t-9999");
                 }
+
+                // 写入非线性土弹簧设置（新增）
+                sw.WriteLine("UseNonlinearSoilSpring\t" + chkEnableNonlinear.Checked.ToString());
 
                 // 写入土层数据表头
                 sw.WriteLine("土层编号\t厚度\tc\tphi\tK0\tEs\tm\t重度\t土性\t水土模式");
@@ -321,7 +339,8 @@ namespace ActiveControl.Forms
 
         private void Form_SoilLayersInfo_Load(object sender, EventArgs e)
         {
-
+            // 初始化非线性土弹簧复选框状态
+            chkEnableNonlinear.Checked = Loadcase.UseNonlinearSoilSpring;
         }
 
         private void chkEnableWater_CheckedChanged(object sender, EventArgs e)      // 【事件】考虑地下水复选框改变
@@ -348,6 +367,20 @@ namespace ActiveControl.Forms
             else
             {
                 cbWaterSoilMode.SelectedIndex = 0;  // 自动（根据土性）
+            }
+        }
+
+        private void chkEnableNonlinear_CheckedChanged(object sender, EventArgs e)   // 【事件】启用非线性土弹簧复选框改变
+        {
+            Loadcase.UseNonlinearSoilSpring = chkEnableNonlinear.Checked;
+
+            if (chkEnableNonlinear.Checked)
+            {
+                mf.PrintString("已启用非线性土弹簧计算（邓肯-张模型）");
+            }
+            else
+            {
+                mf.PrintString("已关闭非线性土弹簧计算（使用线性m法）");
             }
         }
 

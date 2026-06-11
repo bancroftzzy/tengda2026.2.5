@@ -29,9 +29,10 @@ namespace ActiveControl
         public double Rf;            // 破坏比（无量纲）
         public double Kb;            // 体积模量系数（无量纲）
         public double m_Duncan;      // 体积模量指数（无量纲）
-        
-        // 模型选择标志
-        public bool UseDuncanChang;  // true=邓肯张模型, false=线性模型
+
+        private const double Pa = 100.0;                         // 大气压 (kPa)
+        private const double MinConfiningStress = 10.0;           // 与 DuncanChangModel 中围压下限一致
+        private const double DuncanKCalibrationDepth = 10.0;      // 用 m 法在 10m 参考深度反标定 K
 
         //构造函数
         public SoilLayer(double thick, double c, double phi, double k0, double es, double m, double gamma, string type)
@@ -61,10 +62,7 @@ namespace ActiveControl
             
             // 根据土性自动设置默认水土模式
             WaterSoilMode = GetDefaultWaterSoilMode(type);
-                        
-            // 默认使用线性模型
-            UseDuncanChang = false;
-            
+
             // 根据土类设置默认邓肯-张参数
             SetDefaultDuncanChangParameters();
         }
@@ -96,10 +94,7 @@ namespace ActiveControl
             
 
             WaterSoilMode = waterSoilMode;
-            
-            // 默认使用线性模型
-            UseDuncanChang = false;
-            
+
             // 根据土类设置默认邓肯-张参数
             SetDefaultDuncanChangParameters();
         }
@@ -107,74 +102,96 @@ namespace ActiveControl
         
         /// <summary>
         /// 根据土层类型设置默认的邓肯-张参数
+        /// 参数来源：工程经验值和三轴试验统计数据
         /// </summary>
         private void SetDefaultDuncanChangParameters()
         {
-            // 根据Es估算K值（经验公式）
-            double Pa = 100.0; // 大气压 kPa
-            
-            if (Type.Contains("软") || Type.Contains("流"))
+            // 根据界面中的5种土层类型精确匹配
+            switch (Type)
             {
-                // 软塑粘土
-                K_Duncan = 200;
-                n_Duncan = 0.4;
-                Rf = 0.75;
-                Kb = 100;
-                m_Duncan = 0.2;
+                case "杂填土":
+                    // 杂填土：松散，压缩性大，强度低
+                    K_Duncan = 300;      // 模量系数较小
+                    n_Duncan = 0.4;      // 模量指数较小（围压效应弱）
+                    Rf = 0.75;           // 破坏比较小（应力-应变曲线较陡）
+                    Kb = 150;            // 体积模量系数
+                    m_Duncan = 0.2;      // 体积模量指数
+                    break;
+
+                case "粉质黏土":
+                    // 粉质黏土：可塑~硬塑，中等强度
+                    K_Duncan = 450;      // 模量系数中等
+                    n_Duncan = 0.5;      // 模量指数中等
+                    Rf = 0.80;           // 破坏比中等
+                    Kb = 220;            // 体积模量系数
+                    m_Duncan = 0.3;      // 体积模量指数
+                    break;
+
+                case "砂质粉土":
+                    // 砂质粉土：稍密~中密，渗透性较好
+                    K_Duncan = 550;      // 模量系数较大
+                    n_Duncan = 0.55;     // 模量指数较大（围压效应明显）
+                    Rf = 0.82;           // 破坏比较大
+                    Kb = 280;            // 体积模量系数
+                    m_Duncan = 0.35;     // 体积模量指数
+                    break;
+
+                case "粉砂":
+                    // 粉砂：中密~密实，强度较高
+                    K_Duncan = 700;      // 模量系数大
+                    n_Duncan = 0.6;      // 模量指数大（围压效应显著）
+                    Rf = 0.85;           // 破坏比大（应力-应变曲线平缓）
+                    Kb = 350;            // 体积模量系数
+                    m_Duncan = 0.4;      // 体积模量指数
+                    break;
+
+                case "淤泥质粘土":
+                    // 淤泥质粘土：软塑~流塑，强度很低，压缩性很大
+                    K_Duncan = 180;      // 模量系数很小
+                    n_Duncan = 0.35;     // 模量指数很小
+                    Rf = 0.70;           // 破坏比小
+                    Kb = 90;             // 体积模量系数很小
+                    m_Duncan = 0.15;     // 体积模量指数很小
+                    break;
+
+                default:
+                    // 默认值（中等土）- 以粉质黏土为参考
+                    K_Duncan = 450;
+                    n_Duncan = 0.5;
+                    Rf = 0.80;
+                    Kb = 220;
+                    m_Duncan = 0.3;
+                    break;
             }
-            else if (Type.Contains("可塑") || Type.Contains("中"))
+
+            CalibrateDuncanKFromAvailableData();
+        }
+
+        /// <summary>
+        /// 优先用 m 法等效初始刚度反标定 K；缺少 m 法参数时再用 Es 经验关系修正。
+        /// </summary>
+        private void CalibrateDuncanKFromAvailableData()
+        {
+            if (M > 0 && Gamma > 0 && K0 > 0)
             {
-                // 可塑粘土
-                K_Duncan = 400;
-                n_Duncan = 0.5;
-                Rf = 0.80;
-                Kb = 200;
-                m_Duncan = 0.3;
+                double sigma3Ref = Math.Max(MinConfiningStress, K0 * Gamma * DuncanKCalibrationDepth);
+                double targetEi = M * 1000.0 * DuncanKCalibrationDepth; // kPa, 由 k_m = h*m*1e6*z 和 k = Ei*1e3*h/L 反推
+                K_Duncan = targetEi / (Pa * Math.Pow(sigma3Ref / Pa, n_Duncan));
+                return;
             }
-            else if (Type.Contains("硬") || Type.Contains("坚"))
-            {
-                // 硬塑粘土
-                K_Duncan = 600;
-                n_Duncan = 0.6;
-                Rf = 0.85;
-                Kb = 300;
-                m_Duncan = 0.4;
-            }
-            else if (Type.Contains("粉"))
-            {
-                // 粉土
-                K_Duncan = 500;
-                n_Duncan = 0.5;
-                Rf = 0.80;
-                Kb = 250;
-                m_Duncan = 0.3;
-            }
-            else if (Type.Contains("砂"))
-            {
-                // 砂土
-                K_Duncan = 800;
-                n_Duncan = 0.6;
-                Rf = 0.85;
-                Kb = 400;
-                m_Duncan = 0.4;
-            }
-            else
-            {
-                // 默认值（中等土）
-                K_Duncan = 400;
-                n_Duncan = 0.5;
-                Rf = 0.80;
-                Kb = 200;
-                m_Duncan = 0.3;
-            }
-            
-            // 如果有Es值，可以用来校正K值
+
+            // 根据 Es 值进行校正（缺少 m 法参数时的备用估算）
             if (Es > 0)
             {
-                // K ≈ Es / Pa × 经验系数
-                double estimatedK = Es * 1000 / Pa * 4.0; // Es单位MPa转kPa
-                // 使用估算值和默认值的平均
-                K_Duncan = (K_Duncan + estimatedK) / 2.0;
+                // 根据压缩模量Es估算K值
+                // 经验关系：Ei ≈ (2~5) × Es，取中间值3.5
+                // Ei = K × Pa × (σ3/Pa)^n
+                // 假设参考围压 σ3 = 100 kPa = Pa
+                // 则 Ei = K × Pa，所以 K ≈ Ei / Pa = 3.5 × Es / Pa
+                double estimatedK = 3.5 * Es * 1000 / Pa;  // Es单位MPa转kPa
+
+                // 使用加权平均：70%经验值 + 30%估算值
+                K_Duncan = 0.7 * K_Duncan + 0.3 * estimatedK;
             }
         }
         /// <summary>

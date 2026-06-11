@@ -28,6 +28,7 @@ namespace ActiveControl
         public static List<int> SlabElemIndex = new List<int>(); // 顶板单元索引
         public static bool EnableWater = false;                   // 是否考虑地下水
         public static double WaterTableElev = -9999;              // 地下水位标高
+        public static bool UseNonlinearSoilSpring = false;        // 是否使用非线性土弹簧（邓肯-张模型）
 
         // 构造函数（保持向后兼容）
         public Loadcase(double excavationdepth, bool isactivesupport)

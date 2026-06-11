@@ -50,7 +50,7 @@ namespace ActiveControl.Forms
                         // 计算过程
                         mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
                         Construction();
-                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                         GlobalPSO();
                         // 后处理
                         CopyToSum();
@@ -66,7 +66,7 @@ namespace ActiveControl.Forms
                         // 计算过程
                         mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
                         Construction();
-                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                         PartitionPSO();
                         // 后处理
                         CopyToSum();
@@ -139,7 +139,7 @@ namespace ActiveControl.Forms
                         // 计算过程
                         mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
                         Construction();
-                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                         // 后处理
                         UpdateEnvData();
                         CopyToSum();
@@ -166,7 +166,7 @@ namespace ActiveControl.Forms
                         // 计算过程
                         mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
                         Construction();
-                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                         GlobalPSO();
                         // 后处理
                         CopyToSum();
@@ -185,7 +185,7 @@ namespace ActiveControl.Forms
                         // 计算过程
                         mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
                         Construction();
-                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                         PartitionPSO();
                         // 后处理
                         CopyToSum();
@@ -228,7 +228,7 @@ namespace ActiveControl.Forms
                         // 计算过程
                         mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
                         Construction();
-                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                         // 后处理
                         UpdateEnvData();
                         CopyToSum();
@@ -513,8 +513,26 @@ namespace ActiveControl.Forms
                     cElev -= j.Thick;
                     if (mf.Nodes[i].Ny > cElev)
                     {
-                        // 刚度Ks = 土层厚度a × 水平宽度b1 × 水平抗力比例系数m × 土层到地面距离z，注意单位换算
-                        ks = (mf.Nodes[i - 1].Ny - mf.Nodes[i].Ny) * 1.0 * j.M * 1e6 * (mf.ElevOfGround - mf.Nodes[i].Ny);
+                        double elemLength = mf.Nodes[i - 1].Ny - mf.Nodes[i].Ny;  // 单元长度
+                        double depth = mf.ElevOfGround - mf.Nodes[i].Ny;          // 深度
+
+                        if (Loadcase.UseNonlinearSoilSpring)
+                        {
+                            // 非线性土弹簧：使用邓肯-张模型计算初始刚度
+                            double area = elemLength * 1.0;  // 截面积 (m²)
+                            double springLength = GetElementLength(iNode, jNode);
+                            double sigma3 = DuncanChangModel.EstimateConfiningStress(depth, j.Gamma, j.K0);
+                            double Ei = DuncanChangModel.FromSoilLayer(j).GetInitialModulus(sigma3);
+                            ks = GetInitialDuncanChangSpringStiffness(j, depth, area, springLength);
+                            Console.WriteLine($"[初始刚度-非线性] 节点{i}, 深度={depth:F2}m, σ3={sigma3:F2}kPa, Ei={Ei:F2}kPa, ks={ks:E3}kN/m");
+                        }
+                        else
+                        {
+                            // 线性土弹簧：使用m法计算刚度
+                            // 刚度Ks = 土层厚度a × 水平宽度b1 × 水平抗力比例系数m × 土层到地面距离z，注意单位换算
+                            ks = elemLength * 1.0 * j.M * 1e6 * depth;
+                            Console.WriteLine($"[初始刚度-线性] 节点{i}, 深度={depth:F2}m, m={j.M:F2}MN/m⁴, ks={ks:E3}kN/m");
+                        }
                         break;
                     }
                 }
@@ -944,7 +962,7 @@ namespace ActiveControl.Forms
                 Loadcase.CurElev -= mf.Loadcases[Loadcase.CurLCNo].ExcavationDepth;            // 当前地面标高
                 foreach (int index in CM_Elem_SoilSpring)
                 {
-                    if (mf.Elements[index].Left.Ny > Loadcase.CurElev)                      // 杀死挖去部分弹簧单元
+                    if (mf.Elements[index].Left.Ny >= Loadcase.CurElev - 1e-6)              // 杀死挖去部分及开挖面处弹簧单元
                     {
                         mf.Elements[index].isAlive = false;
                         mf.Elements[index].RealConstant.IniStrn = 0;
@@ -973,7 +991,20 @@ namespace ActiveControl.Forms
                                     }
                                 }
                                 double elemLength = upperY - currentY;
-                                mf.Elements[index].RealConstant.Area = elemLength * 1.0 * j.M * 1e6 * (Loadcase.CurElev - mf.Elements[index].Left.Ny);
+                                double depth = Loadcase.CurElev - mf.Elements[index].Left.Ny;
+
+                                if (Loadcase.UseNonlinearSoilSpring)
+                                {
+                                    // 非线性土弹簧：使用邓肯-张模型计算刚度
+                                    double area = elemLength * 1.0;  // 截面积 (m²)
+                                    double springLength = GetElementLength(mf.Elements[index].Left, mf.Elements[index].Right);
+                                    mf.Elements[index].RealConstant.Area = GetInitialDuncanChangSpringStiffness(j, depth, area, springLength);
+                                }
+                                else
+                                {
+                                    // 线性土弹簧：使用m法计算刚度
+                                    mf.Elements[index].RealConstant.Area = elemLength * 1.0 * j.M * 1e6 * depth;
+                                }
                                 break;
                             }
                         }
@@ -1046,7 +1077,7 @@ namespace ActiveControl.Forms
                     if (mf.Elements[supportElemIndex].isAlive)
                     {
                         // 4.1 先求解一次，获取当前支撑抗力
-                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                         mf.Elements[supportElemIndex].getNodalForce();
                         double supportForce = -mf.Elements[supportElemIndex].jFx;  // 支撑轴力（正值为压力）
                         
@@ -1082,7 +1113,7 @@ namespace ActiveControl.Forms
                 // 激活被回填区域的土弹簧
                 foreach (int index in CM_Elem_SoilSpring)
                 {
-                    if (mf.Elements[index].Left.Ny <= Loadcase.CurElev && !mf.Elements[index].isAlive)
+                    if (mf.Elements[index].Left.Ny < Loadcase.CurElev - 1e-6 && !mf.Elements[index].isAlive)
                     {
                         // 激活土弹簧
                         mf.Elements[index].isAlive = true;
@@ -1094,8 +1125,6 @@ namespace ActiveControl.Forms
                             cElev -= j.Thick;
                             if (mf.Elements[index].Left.Ny > cElev)
                             {
-                                // 回填土刚度 = 原状土刚度 × 压实系数（这里假设压实系数为0.8）
-                                double compactionFactor = 0.8;
                                 // 找到围护墙上当前节点的上方相邻节点,计算单元长度
                                 double currentY = mf.Elements[index].Right.Ny;
                                 double upperY = currentY;
@@ -1110,13 +1139,29 @@ namespace ActiveControl.Forms
                                     }
                                 }
                                 double elemLength = upperY - currentY;
-                                double ks = elemLength * 1.0 * 
-                                           j.M * 1e6 * (Loadcase.CurElev - mf.Elements[index].Left.Ny) * compactionFactor;
+                                double depth = Loadcase.CurElev - mf.Elements[index].Left.Ny;
+
+                                // 回填土刚度 = 原状土刚度 × 压实系数（这里假设压实系数为0.8）
+                                double compactionFactor = 0.8;
+                                double ks;
+
+                                if (Loadcase.UseNonlinearSoilSpring)
+                                {
+                                    // 非线性土弹簧：使用邓肯-张模型计算刚度
+                                    double area = elemLength * 1.0;  // 截面积 (m²)
+                                    double springLength = GetElementLength(mf.Elements[index].Left, mf.Elements[index].Right);
+                                    ks = GetInitialDuncanChangSpringStiffness(j, depth, area, springLength) * compactionFactor;
+                                }
+                                else
+                                {
+                                    // 线性土弹簧：使用m法计算刚度
+                                    ks = elemLength * 1.0 * j.M * 1e6 * depth * compactionFactor;
+                                }
+
                                 mf.Elements[index].RealConstant.Area = ks;
-                                
+
                                 // 计算回填土压力增量（主动土压力）
                                 double Ka = Math.Pow(Math.Tan((45 - j.Phi / 2) * Math.PI / 180), 2);
-                                double depth = Loadcase.CurElev - mf.Elements[index].Left.Ny;
                                 double P_backfill = Ka * j.Gamma * 1e3 * depth;
                                 
                                 // 通过初应变施加回填土压力
@@ -1180,8 +1225,8 @@ namespace ActiveControl.Forms
                         ForceMax[i] = -Force0[i] + mf.Supports[Loadcase.AdjSupIndex[i]].MaxFC / mf.Supports[Loadcase.AdjSupIndex[i]].HrzDist;
 
                         // 最小轴力（受压）：20kN 或 Force0绝对值的10%，取较大者
-                        double minForce1 = 20 * 1e3;  // 20kN = 20000N
-                        double minForce2 = Math.Abs(Force0[i]) * 0.1;  // Force0绝对值的10%
+                        double minForce1 = 50 * 1e3;  // 50kN = 50000N
+                        double minForce2 = Math.Abs(Force0[i]) * 0.2;  // Force0绝对值的20%
                         double minForceRequired = Math.Max(minForce1, minForce2);  // 单位：N
 
                         ForceMin[i] = -Force0[i] + minForceRequired;  // 调整量，单位：N
@@ -1511,7 +1556,7 @@ namespace ActiveControl.Forms
 
                         Vector<double> Force1 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
                         Vector<double> Force2 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
-                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                         for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
                         {
                             mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[iForce]]].getNodalForce();
@@ -1521,7 +1566,7 @@ namespace ActiveControl.Forms
                         {
                             int j = Loadcase.AdjSupIndex.Count() - iForce - 1;
                             mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].RealConstant.IniStrn += DeltaInstr[j] / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].RealConstant.Area;
-                            FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                            SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                             UpdateEnvData();
                             mf.rtbOutputWindow.Text += "  调节第 " + (Loadcase.AdjSupIndex[j] + 1).ToString("0") + " 根支撑......\r\n";
                             for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
@@ -1866,7 +1911,7 @@ namespace ActiveControl.Forms
 
                         Vector<double> Force1 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
                         Vector<double> Force2 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
-                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                         for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
                         {
                             mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[iForce]]].getNodalForce();
@@ -1876,7 +1921,7 @@ namespace ActiveControl.Forms
                         {
                             int j = PartAdjSupIndex.Count() - iForce - 1;
                             mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].RealConstant.IniStrn += DeltaInstr[j] / mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].RealConstant.Area;
-                            FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                            SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                             UpdateEnvData();
                             mf.rtbOutputWindow.Text += "  调节第 " + (PartAdjSupIndex[j] + 1).ToString("0") + " 根支撑......\r\n";
                             for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
@@ -1977,7 +2022,7 @@ namespace ActiveControl.Forms
                     {
                         int j = Loadcase.AdjSupIndex.Count() - iForce - 1;
                         mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].RealConstant.IniStrn += AdjustVec[j] / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].RealConstant.Area;
-                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                         UpdateEnvData();
                         mf.rtbOutputWindow.Text += "  调节第 " + (Loadcase.AdjSupIndex[j] + 1).ToString("0") + " 根支撑......\r\n";
                         for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
@@ -2072,7 +2117,7 @@ namespace ActiveControl.Forms
                     {
                         int j = PartAdjSupIndex.Count() - iForce - 1;
                         mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].RealConstant.IniStrn += DeltaInstr[j] / mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].RealConstant.Area;
-                        FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                         UpdateEnvData();
                         mf.rtbOutputWindow.Text += "  调节第 " + (PartAdjSupIndex[j] + 1).ToString("0") + " 根支撑......\r\n";
                         for (int i = 0; i < PartAdjSupIndex.Count(); i++)
@@ -2173,6 +2218,50 @@ namespace ActiveControl.Forms
                 FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
             }
             return ForceCohMat;
+        }
+
+        /// <summary>
+        /// 计算两节点单元长度，土弹簧通常为水平 1m
+        /// </summary>
+        private static double GetElementLength(Node left, Node right)
+        {
+            double length = Math.Sqrt(Math.Pow(left.Nx - right.Nx, 2) + Math.Pow(left.Ny - right.Ny, 2));
+            return length > 1e-6 ? length : 1.0;
+        }
+
+        /// <summary>
+        /// 计算邓肯-张土弹簧物理初始刚度，返回值单位与有限元整体一致（N/m）
+        /// </summary>
+        private static double GetInitialDuncanChangSpringStiffness(SoilLayer soilLayer, double depth, double area, double springLength)
+        {
+            if (depth < 0.1)
+                depth = 0.1;
+
+            DuncanChangModel dcModel = DuncanChangModel.FromSoilLayer(soilLayer);
+            double sigma3 = DuncanChangModel.EstimateConfiningStress(depth, soilLayer.Gamma, soilLayer.K0);
+            return dcModel.GetSpringStiffness(sigma3, 0.0, area, springLength);
+        }
+
+        /// <summary>
+        /// 统一的求解方法：根据Loadcase.UseNonlinearSoilSpring自动选择线性或非线性求解
+        /// </summary>
+        private void SolveWithMode(List<Element> Elements, ref List<Node> Nodes,
+                                   Vector<double> Fs, List<int> ConstrainedDOFIndex,
+                                   out Vector<double> Disp, out Vector<double> RForce)
+        {
+            if (Loadcase.UseNonlinearSoilSpring)
+            {
+                // 非线性求解：使用邓肯-张模型迭代
+                FEM.SolveNonlinear(Elements, ref Nodes, Fs, ConstrainedDOFIndex,
+                                   CM_Elem_SoilSpring, mf.SoilLayers,
+                                   Loadcase.CurElev, mf.ElevOfCollar,
+                                   out Disp, out RForce);
+            }
+            else
+            {
+                // 线性求解：刚度不变
+                FEM.Solve(Elements, ref Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+            }
         }
 
     }

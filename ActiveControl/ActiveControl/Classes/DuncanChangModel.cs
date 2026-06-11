@@ -134,7 +134,8 @@ namespace ActiveControl
                 length = 1e-6;
             
             double Et = GetTangentModulus(sigma3, deviatorStress);
-            return Et * area / length;
+            // Et is kPa (kN/m2), while the FEM load/stiffness system uses N.
+            return Et * 1e3 * area / length;
         }
 
         /// <summary>
@@ -191,7 +192,7 @@ namespace ActiveControl
             double force = currentStiffness * Math.Abs(displacement);
             
             // σ = F / A
-            double stress = force / area;
+            double stress = force / area / 1e3;
             
             return stress;
         }

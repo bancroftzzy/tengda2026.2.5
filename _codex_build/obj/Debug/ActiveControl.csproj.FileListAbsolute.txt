@@ -1,0 +1,14 @@
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.csproj.AssemblyReference.cache
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.exe.config
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.Forms.Form_Calculate.resources
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.Forms.Form_LoadcasesInfo.resources
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.Forms.Form_LocalLoadsInfo.resources
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.Form_Main.resources
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.Forms.Form_OtherInfo.resources
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.Forms.Form_SoilLayersInfo.resources
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.Forms.Form_SupportsInfo.resources
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.Form_Welcome.resources
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.Form_Signup.resources
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.Form_ChangePassword.resources
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.Properties.Resources.resources
+E:\TJ\project\tengda\tengda2026.2.5\_codex_build\obj\Debug\ActiveControl.csproj.GenerateResource.cache

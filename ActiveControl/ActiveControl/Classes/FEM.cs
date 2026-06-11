@@ -293,35 +293,70 @@ namespace ActiveControl
         /// 【方法】非线性有限元求解（用于邓肯-张模型）
         /// 使用切线刚度法迭代求解
         /// </summary>
-        public static void SolveNonlinear(List<Element> Elements, ref List<Node> Nodes, Vector<double> Fs, 
+        public static void SolveNonlinear(List<Element> Elements, ref List<Node> Nodes, Vector<double> Fs,
             List<int> ConstrainedDOFIndex, List<int> CM_Elem_SoilSpring, List<SoilLayer> SoilLayers,
-            double elevOfGround, double elevOfCollar, out Vector<double> Disp, out Vector<double> RForce,
-            int maxIterations = 50, double tolerance = 1e-4, double relaxationFactor = 0.5)
+            double currentSurfaceElev, double elevOfCollar, out Vector<double> Disp, out Vector<double> RForce,
+            int maxIterations = 100, double tolerance = 1e-3, double relaxationFactor = 0.2)
         {
+            // 输出非线性求解开始信息
+            Console.WriteLine("\n========== 开始非线性土弹簧迭代求解（邓肯-张模型） ==========");
+
             // 迭代参数
             int iteration = 0;
             double maxStiffnessChange = double.MaxValue;
-            
+
             // 保存每个土弹簧的初始刚度和当前刚度
             Dictionary<int, double> initialStiffness = new Dictionary<int, double>();
             Dictionary<int, double> currentStiffness = new Dictionary<int, double>();
-            
+
             // 记录初始刚度
+            int activeSoilSpringCount = 0;
             foreach (int index in CM_Elem_SoilSpring)
             {
                 if (Elements[index].isAlive)
                 {
-                    initialStiffness[index] = Elements[index].RealConstant.Area;
-                    currentStiffness[index] = Elements[index].RealConstant.Area;
+                    Element elem = Elements[index];
+                    SoilLayer soilLayer = GetSoilLayerAtDepth(SoilLayers, elem.Left.Ny, elevOfCollar);
+                    if (soilLayer == null)
+                        continue;
+
+                    double length = GetElementLength(elem);
+                    double area = GetSoilSpringArea(Nodes, elem);
+                    double depth = currentSurfaceElev - elem.Left.Ny;
+                    double physicalInitialStiffness = GetInitialDuncanChangSpringStiffness(soilLayer, depth, area, length);
+
+                    initialStiffness[index] = physicalInitialStiffness;
+                    currentStiffness[index] = Elements[index].RealConstant.Area > 1e-9
+                        ? Elements[index].RealConstant.Area
+                        : physicalInitialStiffness;
+                    Elements[index].RealConstant.Area = currentStiffness[index];
+                    activeSoilSpringCount++;
                 }
+            }
+
+            // 输出初始刚度统计
+            if (activeSoilSpringCount > 0)
+            {
+                double avgStiffness = initialStiffness.Values.Average();
+                double minStiffness = initialStiffness.Values.Min();
+                double maxStiffness = initialStiffness.Values.Max();
+                Console.WriteLine($"活动土弹簧数量: {activeSoilSpringCount}");
+                Console.WriteLine($"初始刚度统计 - 平均: {avgStiffness:E3} kN/m, 最小: {minStiffness:E3} kN/m, 最大: {maxStiffness:E3} kN/m");
+                Console.WriteLine($"迭代参数 - 最大迭代次数: {maxIterations}, 收敛容差: {tolerance:E3}, 松弛因子: {relaxationFactor}");
+            }
+            else
+            {
+                Console.WriteLine("警告：没有活动的土弹簧单元");
             }
             
             // 迭代求解
             while (iteration < maxIterations && maxStiffnessChange > tolerance)
             {
+                iteration++;
+
                 // 1. 用当前刚度求解
                 Solve(Elements, ref Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                
+
                 // 2. 更新土弹簧刚度
                 maxStiffnessChange = 0;
                 
@@ -329,20 +364,20 @@ namespace ActiveControl
                 {
                     if (!Elements[index].isAlive)
                         continue;
-                    
+
                     Element elem = Elements[index];
-                    
+
                     // 获取土弹簧所在的土层
                     SoilLayer soilLayer = GetSoilLayerAtDepth(SoilLayers, elem.Left.Ny, elevOfCollar);
-                    
-                    if (soilLayer == null || !soilLayer.UseDuncanChang)
-                        continue;  // 如果不使用邓肯-张模型，跳过
-                    
+
+                    if (soilLayer == null)
+                        continue;  // 如果找不到土层，跳过
+
                     // 创建邓肯-张模型
                     DuncanChangModel dcModel = DuncanChangModel.FromSoilLayer(soilLayer);
                     
-                    // 计算深度（从地面算起）
-                    double depth = elevOfGround - elem.Left.Ny;
+                    // 计算深度（从当前开挖面或回筑面算起）
+                    double depth = currentSurfaceElev - elem.Left.Ny;
                     if (depth < 0.1)
                         depth = 0.1;
                     
@@ -353,16 +388,10 @@ namespace ActiveControl
                     double displacement = elem.Right.Ux - elem.Left.Ux;
                     
                     // 计算单元长度和面积
-                    double length = Math.Sqrt(Math.Pow(elem.Left.Nx - elem.Right.Nx, 2) + 
-                                             Math.Pow(elem.Left.Ny - elem.Right.Ny, 2));
-                    if (length < 1e-6)
-                        length = 1.0;  // 默认1m
+                    double length = GetElementLength(elem);
                     
                     // 计算作用面积（单元高度 × 单位宽度）
-                    double elemHeight = Math.Abs(elem.Left.Ny - elem.Right.Ny);
-                    if (elemHeight < 1e-6)
-                        elemHeight = 0.2;  // 默认0.2m
-                    double area = elemHeight * 1.0;  // 单位宽度1m
+                    double area = GetSoilSpringArea(Nodes, elem);
                     
                     // 估算偏应力
                     double deviatorStress = DuncanChangModel.EstimateDeviatorStress(
@@ -378,43 +407,108 @@ namespace ActiveControl
                     // 限制刚度变化范围（防止过大波动）
                     double minStiffness = initialStiffness[index] * 0.1;   // 最小为初始刚度的10%
                     double maxStiffness = initialStiffness[index] * 2.0;   // 最大为初始刚度的200%
+                    double maxStepRatio = 0.2;                             // 单次迭代最大变化20%
                     
                     if (updatedStiffness < minStiffness)
                         updatedStiffness = minStiffness;
                     if (updatedStiffness > maxStiffness)
                         updatedStiffness = maxStiffness;
+                    if (oldStiffness > 1e-9)
+                    {
+                        double minStepStiffness = oldStiffness * (1.0 - maxStepRatio);
+                        double maxStepStiffness = oldStiffness * (1.0 + maxStepRatio);
+                        if (updatedStiffness < minStepStiffness)
+                            updatedStiffness = minStepStiffness;
+                        if (updatedStiffness > maxStepStiffness)
+                            updatedStiffness = maxStepStiffness;
+                    }
                     
                     // 更新刚度
                     elem.RealConstant.Area = updatedStiffness;
                     currentStiffness[index] = updatedStiffness;
                     
                     // 计算刚度变化率
-                    double stiffnessChange = Math.Abs(updatedStiffness - oldStiffness) / oldStiffness;
+                    double stiffnessChange = oldStiffness > 1e-9
+                        ? Math.Abs(updatedStiffness - oldStiffness) / oldStiffness
+                        : Math.Abs(updatedStiffness - oldStiffness);
                     if (stiffnessChange > maxStiffnessChange)
                         maxStiffnessChange = stiffnessChange;
                 }
-                
-                iteration++;
-                
-                // 输出迭代信息（可选）
-                if (iteration % 10 == 0)
-                {
-                    Console.WriteLine($"  非线性迭代 {iteration}: 最大刚度变化率 = {maxStiffnessChange:E3}");
-                }
+
+                // 输出每次迭代信息
+                Console.WriteLine($"迭代 {iteration}: 最大刚度变化率 = {maxStiffnessChange:E3}");
             }
             
             // 最后一次求解，确保结果一致
             Solve(Elements, ref Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-            
+
             // 输出收敛信息
             if (maxStiffnessChange <= tolerance)
             {
-                Console.WriteLine($"  非线性求解收敛，迭代次数: {iteration}");
+                Console.WriteLine($"✓ 非线性求解收敛，总迭代次数: {iteration}");
             }
             else
             {
-                Console.WriteLine($"  警告：非线性求解未完全收敛，迭代次数: {iteration}，最大变化率: {maxStiffnessChange:E3}");
+                Console.WriteLine($"✗ 警告：非线性求解未完全收敛，总迭代次数: {iteration}，最大变化率: {maxStiffnessChange:E3}");
             }
+
+            // 输出最终刚度统计
+            if (currentStiffness.Count > 0)
+            {
+                double finalAvgStiffness = currentStiffness.Values.Average();
+                double finalMinStiffness = currentStiffness.Values.Min();
+                double finalMaxStiffness = currentStiffness.Values.Max();
+                Console.WriteLine($"最终刚度统计 - 平均: {finalAvgStiffness:E3} kN/m, 最小: {finalMinStiffness:E3} kN/m, 最大: {finalMaxStiffness:E3} kN/m");
+            }
+            Console.WriteLine("========== 非线性求解完成 ==========\n");
+        }
+
+        /// <summary>
+        /// 【辅助方法】计算土弹簧水平长度
+        /// </summary>
+        private static double GetElementLength(Element elem)
+        {
+            double length = Math.Sqrt(Math.Pow(elem.Left.Nx - elem.Right.Nx, 2) +
+                                      Math.Pow(elem.Left.Ny - elem.Right.Ny, 2));
+            return length > 1e-6 ? length : 1.0;
+        }
+
+        /// <summary>
+        /// 【辅助方法】计算土弹簧控制面积（墙体节点上方相邻节点间距 × 单位宽度）
+        /// </summary>
+        private static double GetSoilSpringArea(List<Node> nodes, Element elem)
+        {
+            double currentY = elem.Right.Ny;
+            double upperY = double.MaxValue;
+
+            foreach (Node node in nodes)
+            {
+                if (Math.Abs(node.Nx - elem.Right.Nx) < 1e-3 &&
+                    node.Ny > currentY + 1e-6 &&
+                    node.Ny < upperY)
+                {
+                    upperY = node.Ny;
+                }
+            }
+
+            double height = upperY < double.MaxValue ? upperY - currentY : 0.2;
+            if (height < 1e-6)
+                height = 0.2;
+
+            return height * 1.0;
+        }
+
+        /// <summary>
+        /// 【辅助方法】计算邓肯-张土弹簧物理初始刚度
+        /// </summary>
+        private static double GetInitialDuncanChangSpringStiffness(SoilLayer soilLayer, double depth, double area, double length)
+        {
+            if (depth < 0.1)
+                depth = 0.1;
+
+            DuncanChangModel dcModel = DuncanChangModel.FromSoilLayer(soilLayer);
+            double sigma3 = DuncanChangModel.EstimateConfiningStress(depth, soilLayer.Gamma, soilLayer.K0);
+            return dcModel.GetSpringStiffness(sigma3, 0.0, area, length);
         }
 
         /// <summary>

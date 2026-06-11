@@ -68,6 +68,7 @@
             this.lblWaterUnit = new System.Windows.Forms.Label();
             this.lblWaterSoilMode = new System.Windows.Forms.Label();
             this.cbWaterSoilMode = new System.Windows.Forms.ComboBox();
+            this.chkEnableNonlinear = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // btnWriteSoilLayerInfo
@@ -456,6 +457,18 @@
             this.cbWaterSoilMode.Size = new System.Drawing.Size(140, 28);
             this.cbWaterSoilMode.TabIndex = 68;
             //
+            // chkEnableNonlinear
+            //
+            this.chkEnableNonlinear.AutoSize = true;
+            this.chkEnableNonlinear.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.chkEnableNonlinear.Location = new System.Drawing.Point(280, 12);
+            this.chkEnableNonlinear.Name = "chkEnableNonlinear";
+            this.chkEnableNonlinear.Size = new System.Drawing.Size(195, 24);
+            this.chkEnableNonlinear.TabIndex = 69;
+            this.chkEnableNonlinear.Text = "启用非线性土弹簧计算";
+            this.chkEnableNonlinear.UseVisualStyleBackColor = true;
+            this.chkEnableNonlinear.CheckedChanged += new System.EventHandler(this.chkEnableNonlinear_CheckedChanged);
+            //
             // Form_SoilLayersInfo
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 15F);
@@ -468,6 +481,7 @@
             this.Controls.Add(this.tbWaterTableElev);
             this.Controls.Add(this.lblWaterTableElev);
             this.Controls.Add(this.chkEnableWater);
+            this.Controls.Add(this.chkEnableNonlinear);
             this.Controls.Add(this.btnWriteSoilLayerInfo);
             this.Controls.Add(this.label9);
             this.Controls.Add(this.btnReadSoilLayerInfo);
@@ -544,5 +558,6 @@
         private System.Windows.Forms.Label lblWaterUnit;
         private System.Windows.Forms.Label lblWaterSoilMode;
         private System.Windows.Forms.ComboBox cbWaterSoilMode;
+        private System.Windows.Forms.CheckBox chkEnableNonlinear;
     }
 }
