@@ -75,7 +75,7 @@
             this.gbOutputWindow.Font = new System.Drawing.Font("黑体", 13.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.gbOutputWindow.Location = new System.Drawing.Point(24, 79);
             this.gbOutputWindow.Name = "gbOutputWindow";
-            this.gbOutputWindow.Size = new System.Drawing.Size(703, 615);
+            this.gbOutputWindow.Size = new System.Drawing.Size(1406, 615);
             this.gbOutputWindow.TabIndex = 40;
             this.gbOutputWindow.TabStop = false;
             this.gbOutputWindow.Text = "输出窗口";
@@ -83,7 +83,7 @@
             // btnWriteLogToFile
             // 
             this.btnWriteLogToFile.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnWriteLogToFile.Location = new System.Drawing.Point(588, 33);
+            this.btnWriteLogToFile.Location = new System.Drawing.Point(1291, 33);
             this.btnWriteLogToFile.Name = "btnWriteLogToFile";
             this.btnWriteLogToFile.Size = new System.Drawing.Size(60, 28);
             this.btnWriteLogToFile.TabIndex = 6;
@@ -94,7 +94,7 @@
             // btnClearOutputWindow
             // 
             this.btnClearOutputWindow.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.btnClearOutputWindow.Location = new System.Drawing.Point(487, 33);
+            this.btnClearOutputWindow.Location = new System.Drawing.Point(1190, 33);
             this.btnClearOutputWindow.Name = "btnClearOutputWindow";
             this.btnClearOutputWindow.Size = new System.Drawing.Size(60, 28);
             this.btnClearOutputWindow.TabIndex = 5;
@@ -107,7 +107,7 @@
             this.rtbOutputWindow.Font = new System.Drawing.Font("宋体", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.rtbOutputWindow.Location = new System.Drawing.Point(19, 77);
             this.rtbOutputWindow.Name = "rtbOutputWindow";
-            this.rtbOutputWindow.Size = new System.Drawing.Size(665, 518);
+            this.rtbOutputWindow.Size = new System.Drawing.Size(1368, 518);
             this.rtbOutputWindow.TabIndex = 1;
             this.rtbOutputWindow.Text = "";
             // 
@@ -122,7 +122,7 @@
             this.数据导出ToolStripMenuItem});
             this.msInput.Location = new System.Drawing.Point(0, 0);
             this.msInput.Name = "msInput";
-            this.msInput.Size = new System.Drawing.Size(1223, 50);
+            this.msInput.Size = new System.Drawing.Size(1926, 50);
             this.msInput.TabIndex = 48;
             this.msInput.Text = "menuStrip1";
             // 
@@ -278,7 +278,7 @@
             legend1.Enabled = false;
             legend1.Name = "Legend1";
             this.Chart.Legends.Add(legend1);
-            this.Chart.Location = new System.Drawing.Point(733, 181);
+            this.Chart.Location = new System.Drawing.Point(1436, 181);
             this.Chart.Name = "Chart";
             series1.ChartArea = "ChartArea1";
             series1.ChartType = System.Windows.Forms.DataVisualization.Charting.SeriesChartType.Line;
@@ -342,7 +342,7 @@
             this.gbDraw.Controls.Add(this.btnDraw);
             this.gbDraw.Controls.Add(this.cbStage);
             this.gbDraw.Controls.Add(this.label1);
-            this.gbDraw.Location = new System.Drawing.Point(774, 110);
+            this.gbDraw.Location = new System.Drawing.Point(1477, 110);
             this.gbDraw.Name = "gbDraw";
             this.gbDraw.Size = new System.Drawing.Size(404, 77);
             this.gbDraw.TabIndex = 58;
@@ -363,7 +363,7 @@
             // btnCalculate
             // 
             this.btnCalculate.Font = new System.Drawing.Font("黑体", 16.2F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnCalculate.Location = new System.Drawing.Point(871, 31);
+            this.btnCalculate.Location = new System.Drawing.Point(1574, 31);
             this.btnCalculate.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.btnCalculate.Name = "btnCalculate";
             this.btnCalculate.Size = new System.Drawing.Size(180, 51);
@@ -378,7 +378,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Dpi;
             this.BackColor = System.Drawing.Color.White;
             this.BackgroundImageLayout = System.Windows.Forms.ImageLayout.Zoom;
-            this.ClientSize = new System.Drawing.Size(1223, 717);
+            this.ClientSize = new System.Drawing.Size(1926, 717);
             this.Controls.Add(this.btnCalculate);
             this.Controls.Add(this.gbDraw);
             this.Controls.Add(this.Chart);

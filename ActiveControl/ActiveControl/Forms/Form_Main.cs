@@ -134,7 +134,10 @@ namespace ActiveControl
                         double MaxFC = Convert.ToDouble(unit[6]);
                         double MaxFT = Convert.ToDouble(unit[7]);
                         bool AdjAble = unit[8] == "True";
-                        Support sp = new Support(Mat, DistToGround, HrzDist, Size1, Size2, MaxFC, MaxFT, AdjAble);
+                        double JackStrokeMax = 200.0;
+                        if (unit.Length >= 10 && !string.IsNullOrWhiteSpace(unit[9]))
+                            JackStrokeMax = Convert.ToDouble(unit[9]);
+                        Support sp = new Support(Mat, DistToGround, HrzDist, Size1, Size2, MaxFC, MaxFT, AdjAble, JackStrokeMax);
                         Supports.Add(sp);
                     }
                     sr2.Close();
@@ -259,6 +262,8 @@ namespace ActiveControl
         public Matrix<double> AliveSum;
         public Matrix<double> InistrnSum;
         public Matrix<double> IniForceSum;
+        public Vector<double> JackStrokeCurrent;  // 当前各支撑千斤顶累计行程，单位m
+        public Matrix<double> JackStrokeSum;      // 各施工阶段结束时的累计行程
 
         // 建立顺序表，存放土层、支撑信息、施工顺序
         public List<Support> Supports = new List<Support>();

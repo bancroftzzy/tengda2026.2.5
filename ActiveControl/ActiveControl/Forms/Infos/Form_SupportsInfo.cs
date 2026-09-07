@@ -65,20 +65,42 @@ namespace ActiveControl.Forms
                 };
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
                 {
-                    // 读文件前清空支撑信息
-                    lvSupports.Items.Clear();
-                    mf.Supports.Clear();
-
-                    // 读文件流
-                    StreamReader sr = new StreamReader(openFileDialog.FileName, Encoding.UTF8);
                     char[] deli = { '\t' };
-                    string line = sr.ReadLine();                             // 读取表头
-                    if (line == "支撑编号\t材料\t离地距离\t水平间距\t尺寸1\t尺寸2\t轴压承载力\t轴拉承载力\t轴力可调整")
+                    const string oldHeader =
+                        "支撑编号\t材料\t离地距离\t水平间距\t尺寸1\t尺寸2\t轴压承载力\t轴拉承载力\t轴力可调整";
+                    const string newHeader =
+                        oldHeader + "\t千斤顶行程上限(mm)";
+                    List<Support> importedSupports = new List<Support>();
+
+                    using (StreamReader sr = new StreamReader(
+                        openFileDialog.FileName,
+                        Encoding.UTF8))
                     {
-                        while (sr.Peek() > 0)
+                        string line = sr.ReadLine();                         // 读取表头
+                        bool isOldFormat = line == oldHeader;
+                        bool isNewFormat = line == newHeader;
+                        if (!isOldFormat && !isNewFormat)
+                            throw new FormatException("支撑数据表头与新版或旧版格式都不匹配。");
+
+                        int lineNumber = 1;
+                        while ((line = sr.ReadLine()) != null)
                         {
-                            line = sr.ReadLine();
-                            string[] unit = line.Split(deli, StringSplitOptions.RemoveEmptyEntries);
+                            lineNumber++;
+                            if (string.IsNullOrWhiteSpace(line))
+                                continue;
+
+                            // 旧数据中可能存在连续制表符，读取时忽略由此产生的空列。
+                            string[] unit = line
+                                .Split(deli, StringSplitOptions.RemoveEmptyEntries)
+                                .Select(value => value.Trim())
+                                .ToArray();
+
+                            if (unit.Length < 9 || unit.Length > 10)
+                            {
+                                throw new FormatException(
+                                    $"第{lineNumber}行应为9列或10列，实际读取到{unit.Length}列。");
+                            }
+
                             string Mat = unit[1];
                             double DistToGround = Convert.ToDouble(unit[2]);
                             double HrzDist = Convert.ToDouble(unit[3]);
@@ -86,23 +108,30 @@ namespace ActiveControl.Forms
                             double Size2 = Convert.ToDouble(unit[5]);
                             double MaxFC = Convert.ToDouble(unit[6]);
                             double MaxFT = Convert.ToDouble(unit[7]);
-                            bool AdjAble = unit[8] == "True";
-                            Support sp = new Support(Mat, DistToGround, HrzDist, Size1, Size2, MaxFC, MaxFT, AdjAble);
-                            mf.Supports.Add(sp);
+                            bool AdjAble;
+                            if (!bool.TryParse(unit[8], out AdjAble))
+                                throw new FormatException($"第{lineNumber}行“轴力可调整”必须为True或False。");
+
+                            double JackStrokeMax = 200.0;
+                            if (unit.Length >= 10 && !string.IsNullOrWhiteSpace(unit[9]))
+                                JackStrokeMax = Convert.ToDouble(unit[9]);
+
+                            Support sp = new Support(Mat, DistToGround, HrzDist, Size1, Size2, MaxFC, MaxFT, AdjAble, JackStrokeMax);
+                            importedSupports.Add(sp);
                         }
-                        outputSupportsInfoToLV();
-                        sr.Close();
-                        mf.PrintString("支撑数据读取成功！");
                     }
-                    else
-                    {
-                        mf.PrintString("文件数据格式不正确，请重新选择。");
-                    }
+
+                    // 只有在文件完整解析成功后，才替换当前支撑数据。
+                    lvSupports.Items.Clear();
+                    mf.Supports.Clear();
+                    mf.Supports.AddRange(importedSupports);
+                    outputSupportsInfoToLV();
+                    mf.PrintString("支撑数据读取成功！");
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                mf.PrintString("文件数据格式不正确，请重新选择。");
+                mf.PrintString("文件数据格式不正确，请重新选择。\r\n" + ex.Message);
             }
         }
 
@@ -118,7 +147,7 @@ namespace ActiveControl.Forms
             if (saveFileDialog.ShowDialog() == DialogResult.OK)
             {
                 StreamWriter sw = new StreamWriter(saveFileDialog.FileName, false, Encoding.UTF8);      // false 指若已存在同名文件则进行覆盖
-                sw.WriteLine("支撑编号\t材料\t离地距离\t水平间距\t尺寸1\t尺寸2\t轴压承载力\t轴拉承载力\t轴力可调整");                       // 写入表头
+                sw.WriteLine("支撑编号\t材料\t离地距离\t水平间距\t尺寸1\t尺寸2\t轴压承载力\t轴拉承载力\t轴力可调整\t千斤顶行程上限(mm)");                       // 写入表头
                 for (int i = 0; i < mf.Supports.Count(); i++)
                 {
                     sw.WriteLine((i + 1).ToString("0") + "\t" + mf.Supports[i].Mat
@@ -128,7 +157,8 @@ namespace ActiveControl.Forms
                                                        + "\t" + mf.Supports[i].Size2.ToString("0.000")
                                                        + "\t" + (mf.Supports[i].MaxFC * 1e-3).ToString("0")
                                                        + "\t" + (mf.Supports[i].MaxFT * 1e-3).ToString("0")
-                                                       + "\t" + mf.Supports[i].AdjAble.ToString());
+                                                       + "\t" + mf.Supports[i].AdjAble.ToString()
+                                                       + "\t" + (mf.Supports[i].JackStrokeMax * 1e3).ToString("0.00"));
 
                 }
                 sw.Close();
@@ -149,9 +179,14 @@ namespace ActiveControl.Forms
                 double MaxFC = Convert.ToDouble(tbSupportsMaxFC.Text);
                 double MaxFT = Convert.ToDouble(tbSupportsMaxFT.Text);
                 bool AdjAble = cbSupportsAdjAble.Text == "是";
+                double JackStrokeMax = string.IsNullOrWhiteSpace(tbSupportsJackStrokeMax.Text)
+                    ? 200.0
+                    : Convert.ToDouble(tbSupportsJackStrokeMax.Text);
+                if (JackStrokeMax < 0)
+                    throw new ArgumentException("千斤顶行程上限不能小于0。");
 
                 // 并入支撑信息
-                Support s = new Support(Mat, DistToGround, HrzDist, Size1, Size2, MaxFC, MaxFT, AdjAble);
+                Support s = new Support(Mat, DistToGround, HrzDist, Size1, Size2, MaxFC, MaxFT, AdjAble, JackStrokeMax);
                 mf.Supports.Insert(lvSupports.SelectedIndices[0], s);
                 outputSupportsInfoToLV();
 
@@ -161,6 +196,7 @@ namespace ActiveControl.Forms
                 tbSupportsHrzDist.Text = "";
                 tbSupportsSize1.Text = "";
                 tbSupportsSize2.Text = "";
+                tbSupportsJackStrokeMax.Text = "200";
                 mf.PrintString("支撑信息插入成功！");
             }
             catch (Exception ex)
@@ -182,9 +218,14 @@ namespace ActiveControl.Forms
                 double MaxFC = Convert.ToDouble(tbSupportsMaxFC.Text);
                 double MaxFT = Convert.ToDouble(tbSupportsMaxFT.Text);
                 bool AdjAble = cbSupportsAdjAble.Text == "是";
+                double JackStrokeMax = string.IsNullOrWhiteSpace(tbSupportsJackStrokeMax.Text)
+                    ? 200.0
+                    : Convert.ToDouble(tbSupportsJackStrokeMax.Text);
+                if (JackStrokeMax < 0)
+                    throw new ArgumentException("千斤顶行程上限不能小于0。");
 
                 // 并入支撑信息
-                Support s = new Support(Mat, DistToGround, HrzDist, Size1, Size2, MaxFC, MaxFT, AdjAble);
+                Support s = new Support(Mat, DistToGround, HrzDist, Size1, Size2, MaxFC, MaxFT, AdjAble, JackStrokeMax);
                 mf.Supports.Add(s);
                 outputSupportsInfoToLV();
 
@@ -194,6 +235,7 @@ namespace ActiveControl.Forms
                 tbSupportsHrzDist.Text = "";
                 tbSupportsSize1.Text = "";
                 tbSupportsSize2.Text = "";
+                tbSupportsJackStrokeMax.Text = "200";
                 mf.PrintString("支撑信息追加成功！");
             }
             catch (Exception ex)
@@ -217,6 +259,7 @@ namespace ActiveControl.Forms
                 li.SubItems.Add((mf.Supports[i].MaxFC * 1e-3).ToString("0"));
                 li.SubItems.Add((mf.Supports[i].MaxFT * 1e-3).ToString("0"));
                 li.SubItems.Add(mf.Supports[i].AdjAble.ToString());
+                li.SubItems.Add((mf.Supports[i].JackStrokeMax * 1e3).ToString("0.00"));
                 lvSupports.Items.Add(li);
             }
         }

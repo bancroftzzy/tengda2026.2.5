@@ -72,6 +72,8 @@ namespace ActiveControl
                 Elements[i].isAlive = true;
         }
 
+#if false
+        // 旧版Check：通过修改支撑初应变实现主动调力。保留用于新旧代码对照，不参与编译。
         public static bool Check(Vector<double> Force, Matrix<double> ForceCohMat, double M1, double M2, double Q, List<int> CM_Elem_ECS, List<int> CM_Elem_Supports, List<int> AdjSupIndex, List<Element> Elements, ref List<Node> Nodes, List<Support> Supports, Vector<double> Fs, List<int> ConstrainedDOFIndex, Vector<double> Force0, out Vector<double> Disp, out Vector<double> RForce)
         {
             bool flag = true;
@@ -176,6 +178,203 @@ namespace ActiveControl
             return flag;
 
         }
+#endif
+
+        /// <summary>
+        /// 把各支撑千斤顶的累计行程写入完整规定位移向量。
+        /// 支撑左端为千斤顶端，正行程沿全局X正方向顶出。
+        /// </summary>
+        public static Vector<double> GetJackPrescribedDisp(
+            List<Element> Elements,
+            List<int> CM_Elem_Supports,
+            Vector<double> JackStrokeCurrent,
+            int totalDof)
+        {
+            if (JackStrokeCurrent == null || JackStrokeCurrent.Count != CM_Elem_Supports.Count)
+                throw new ArgumentException("千斤顶累计行程向量长度必须等于支撑总数。", nameof(JackStrokeCurrent));
+
+            Vector<double> PrescribedDisp = Vector<double>.Build.Dense(totalDof, 0.0);
+
+            for (int i = 0; i < CM_Elem_Supports.Count; i++)
+            {
+                Element supportElement = Elements[CM_Elem_Supports[i]];
+                if (!supportElement.isAlive)
+                    continue;
+
+                int jackDof = (supportElement.Left.No - 1) * 3;
+                PrescribedDisp[jackDof] = JackStrokeCurrent[i];
+            }
+
+            return PrescribedDisp;
+        }
+
+        // 新版Check：PSO粒子Force仍表示目标轴力增量，影响矩阵反算得到千斤顶行程增量。
+        public static bool Check(
+            Vector<double> Force,
+            Matrix<double> ForceCohMat,
+            double M1,
+            double M2,
+            double Q,
+            List<int> CM_Elem_ECS,
+            List<int> CM_Elem_Supports,
+            List<int> AdjSupIndex,
+            List<Element> Elements,
+            ref List<Node> Nodes,
+            List<Support> Supports,
+            Vector<double> Fs,
+            List<int> ConstrainedDOFIndex,
+            Vector<double> Force0,
+            Vector<double> JackStrokeCurrent,
+            out Vector<double> Disp,
+            out Vector<double> RForce)
+        {
+            Vector<double> JackStrokeCandidate;
+            return Check(
+                Force, ForceCohMat, M1, M2, Q,
+                CM_Elem_ECS, CM_Elem_Supports, AdjSupIndex,
+                Elements, ref Nodes, Supports, Fs, ConstrainedDOFIndex,
+                Force0, JackStrokeCurrent,
+                out JackStrokeCandidate, out Disp, out RForce);
+        }
+
+        // 带候选累计行程输出的重载，供优化结束后正式提交计算状态。
+        public static bool Check(
+            Vector<double> Force,
+            Matrix<double> ForceCohMat,
+            double M1,
+            double M2,
+            double Q,
+            List<int> CM_Elem_ECS,
+            List<int> CM_Elem_Supports,
+            List<int> AdjSupIndex,
+            List<Element> Elements,
+            ref List<Node> Nodes,
+            List<Support> Supports,
+            Vector<double> Fs,
+            List<int> ConstrainedDOFIndex,
+            Vector<double> Force0,
+            Vector<double> JackStrokeCurrent,
+            out Vector<double> JackStrokeCandidate,
+            out Vector<double> Disp,
+            out Vector<double> RForce)
+        {
+            bool flag = true;
+            int totalDof = Nodes.Count * 3;
+            Disp = Vector<double>.Build.Dense(totalDof, 0.0);
+            RForce = Vector<double>.Build.Dense(ConstrainedDOFIndex.Count, 0.0);
+
+            if (Force == null || Force.Count != AdjSupIndex.Count ||
+                ForceCohMat == null ||
+                ForceCohMat.RowCount != AdjSupIndex.Count ||
+                ForceCohMat.ColumnCount != AdjSupIndex.Count ||
+                Force0 == null || Force0.Count != AdjSupIndex.Count ||
+                Supports == null || Supports.Count != CM_Elem_Supports.Count ||
+                JackStrokeCurrent == null || JackStrokeCurrent.Count != CM_Elem_Supports.Count)
+            {
+                JackStrokeCandidate = JackStrokeCurrent == null
+                    ? Vector<double>.Build.Dense(CM_Elem_Supports.Count, 0.0)
+                    : JackStrokeCurrent.Clone();
+                Console.WriteLine("[Check失败] 粒子、影响矩阵或千斤顶行程向量维数不一致。");
+                return false;
+            }
+
+            Vector<double> JackStrokeIncrement;
+            try
+            {
+                JackStrokeIncrement = ForceCohMat.Solve(Force);
+            }
+            catch (Exception ex)
+            {
+                JackStrokeCandidate = JackStrokeCurrent.Clone();
+                Console.WriteLine("[Check失败] 千斤顶行程反算失败：" + ex.Message);
+                return false;
+            }
+
+            JackStrokeCandidate = JackStrokeCurrent.Clone();
+            const double strokeTolerance = 1.0e-9;
+            for (int i = 0; i < AdjSupIndex.Count; i++)
+            {
+                int supportIndex = AdjSupIndex[i];
+                double candidateStroke = JackStrokeCurrent[supportIndex] + JackStrokeIncrement[i];
+                double maximumStroke = Supports[supportIndex].JackStrokeMax;
+
+                if (double.IsNaN(candidateStroke) || double.IsInfinity(candidateStroke) ||
+                    candidateStroke < -strokeTolerance ||
+                    candidateStroke > maximumStroke + strokeTolerance)
+                {
+                    Console.WriteLine(
+                        $"[Check失败] 支撑{supportIndex + 1}累计行程={candidateStroke * 1e3:F3}mm，" +
+                        $"允许范围为0～{maximumStroke * 1e3:F3}mm。");
+                    flag = false;
+                }
+                else
+                {
+                    // 消除矩阵求解的浮点误差，确保实际保存的累计行程严格在边界内。
+                    JackStrokeCandidate[supportIndex] =
+                        Math.Max(0.0, Math.Min(maximumStroke, candidateStroke));
+                }
+            }
+
+            if (!flag)
+                return false;
+
+            Vector<double> PrescribedDisp = GetJackPrescribedDisp(
+                Elements, CM_Elem_Supports, JackStrokeCandidate, totalDof);
+            Solve(
+                Elements, ref Nodes, Fs, ConstrainedDOFIndex, PrescribedDisp,
+                out Disp, out RForce);
+
+            // 围护结构内力校核
+            foreach (int i in CM_Elem_ECS)
+            {
+                Elements[i].getNodalForce();
+                if (Elements[i].iMom > M2 * 1e3 ||
+                    Elements[i].iMom < -M1 * 1e3 ||
+                    Elements[i].iFy > Q * 1e3 ||
+                    Elements[i].iFy < -Q * 1e3)
+                {
+                    Console.WriteLine(
+                        $"[Check失败] 单元{i}: iMom={Elements[i].iMom:F2} " +
+                        $"(限值: {-M1 * 1e3:F2}～{M2 * 1e3:F2}), " +
+                        $"iFy={Elements[i].iFy:F2} (限值: ±{Q * 1e3:F2})");
+                    flag = false;
+                }
+            }
+
+            // 支撑轴力限值校核。沿用原代码的jFx符号：受压为负，受拉为正。
+            for (int i = 0; i < CM_Elem_Supports.Count; i++)
+            {
+                Element supportElement = Elements[CM_Elem_Supports[i]];
+                if (!supportElement.isAlive)
+                    continue;
+
+                supportElement.getNodalForce();
+                double jFx = supportElement.jFx;
+                double maxForce = -Supports[i].MaxFC / Supports[i].HrzDist;
+                int adjIndex = AdjSupIndex.IndexOf(i);
+
+                double minForce;
+                if (adjIndex >= 0)
+                {
+                    double minForceAbs = Math.Max(20 * 1e3, Math.Abs(Force0[adjIndex]) * 0.1);
+                    minForce = -minForceAbs;
+                }
+                else
+                {
+                    minForce = Supports[i].MaxFT / Supports[i].HrzDist;
+                }
+
+                if (jFx < maxForce || jFx > minForce)
+                {
+                    Console.WriteLine(
+                        $"[Check失败] 支撑{i + 1}: jFx={jFx:F2} " +
+                        $"(限值: {maxForce:F2}～{minForce:F2})");
+                    flag = false;
+                }
+            }
+
+            return flag;
+        }
 
         public static bool FullyCheck(Vector<double> SupForce, Vector<double> IniForce0, Matrix<double> ForceCohMat, double M1, double M2, double Q, List<int> CM_Elem_ECS, List<int> CM_Elem_Supports, List<int> AdjSupIndex, List<Element> Elements, ref List<Node> Nodes, Vector<double> Fs, List<int> ConstrainedDOFIndex, out Vector<double> Disp, out Vector<double> RForce)
         {
@@ -249,43 +448,76 @@ namespace ActiveControl
             return Math.Sqrt(Ux);
         }
 
-        // 【方法】有限元求解
-        public static void Solve(List<Element> Elements, ref List<Node> Nodes, Vector<double> Fs, List<int> ConstrainedDOFIndex, out Vector<double> Disp,out Vector<double> RForce)
+        // 【方法】有限元求解。保留旧接口：所有约束自由度的规定位移默认为0。
+        public static void Solve(
+            List<Element> Elements,
+            ref List<Node> Nodes,
+            Vector<double> Fs,
+            List<int> ConstrainedDOFIndex,
+            out Vector<double> Disp,
+            out Vector<double> RForce)
         {
-            // 构造划行划列矩阵
-            Matrix<double> TransK0 = Matrix<double>.Build.Dense((Nodes.Count() * 3) - ConstrainedDOFIndex.Count(), Nodes.Count() * 3, 0);
-            Matrix<double> TransKc = Matrix<double>.Build.Dense(ConstrainedDOFIndex.Count(), Nodes.Count() * 3, 0);
-            for (int i = 0, count = 0; i < Nodes.Count() * 3; i++)
+            Vector<double> PrescribedDisp =
+                Vector<double>.Build.Dense(Nodes.Count * 3, 0.0);
+
+            Solve(
+                Elements, ref Nodes, Fs, ConstrainedDOFIndex, PrescribedDisp,
+                out Disp, out RForce);
+        }
+
+        // 【方法】有限元求解：允许约束自由度具有非零规定位移。
+        public static void Solve(
+            List<Element> Elements,
+            ref List<Node> Nodes,
+            Vector<double> Fs,
+            List<int> ConstrainedDOFIndex,
+            Vector<double> PrescribedDisp,
+            out Vector<double> Disp,
+            out Vector<double> RForce)
+        {
+            int totalDof = Nodes.Count * 3;
+
+            if (PrescribedDisp == null || PrescribedDisp.Count != totalDof)
+                throw new ArgumentException("规定位移向量长度必须等于结构总自由度数。", nameof(PrescribedDisp));
+
+            HashSet<int> constrainedDofs = new HashSet<int>();
+            foreach (int dof in ConstrainedDOFIndex)
             {
-                if (!ConstrainedDOFIndex.Contains(i))
-                {
-                    count++;
-                    TransK0[count - 1, i] = 1;
-                }
-                else
-                    TransKc[i - count, i] = 1;
+                if (dof < 0 || dof >= totalDof)
+                    throw new ArgumentOutOfRangeException(nameof(ConstrainedDOFIndex), "约束自由度编号超出范围。");
+                if (!constrainedDofs.Add(dof))
+                    throw new ArgumentException("约束自由度列表存在重复编号。", nameof(ConstrainedDOFIndex));
             }
 
-            // 计算总刚矩阵 K0，计算约束反力所需矩阵 Kc（也即结力下 P16 式 8-34 中的 K_{aa} 和 K_{ba}）和划行后的荷载向量 F0
+            int constrainedCount = constrainedDofs.Count;
+            int freeCount = totalDof - constrainedCount;
+            Matrix<double> TransK0 = Matrix<double>.Build.Dense(freeCount, totalDof, 0.0);
+            Matrix<double> TransKc = Matrix<double>.Build.Dense(constrainedCount, totalDof, 0.0);
+
+            int freeRow = 0;
+            int constrainedRow = 0;
+            for (int dof = 0; dof < totalDof; dof++)
+            {
+                if (constrainedDofs.Contains(dof))
+                    TransKc[constrainedRow++, dof] = 1.0;
+                else
+                    TransK0[freeRow++, dof] = 1.0;
+            }
+
             Matrix<double> Kg = GetKg(Elements, Nodes);
             Vector<double> Fg = GetFg(Elements, Fs);
-            Matrix<double> K0 = TransK0 * Kg * TransK0.Transpose();
-            Matrix<double> Kc = TransKc * Kg * TransK0.Transpose();
-            Vector<double> F0 = TransK0 * Fg;
-            
-            // 求解总刚方程得到结点位移
-            Vector<double>  Disp0 = K0.Solve(F0);                         // 未约束结点的位移
-            RForce = Kc * Disp0;                                          // 支座反力
-            Disp = Vector<double>.Build.Dense(Nodes.Count() * 3, 0.0);    // 全部结点位移
-            for (int i = 0, count = 0; i < Nodes.Count() * 3; i++)
-            {
-                if (!ConstrainedDOFIndex.Contains(i))
-                {
-                    count++;
-                    Disp[i] = Disp0[count - 1];
-                }
-            }
-            for (int i = 0; i < Nodes.Count(); i++)                       // 将位移数据赋予结点
+            Matrix<double> Kff = TransK0 * Kg * TransK0.Transpose();
+            Matrix<double> Kfc = TransK0 * Kg * TransKc.Transpose();
+            Vector<double> Ff = TransK0 * Fg;
+            Vector<double> Uc = TransKc * PrescribedDisp;
+
+            // Kff * Uf = Ff - Kfc * Uc
+            Vector<double> Uf = Kff.Solve(Ff - Kfc * Uc);
+
+            Disp = TransK0.Transpose() * Uf + TransKc.Transpose() * Uc;
+            RForce = TransKc * (Kg * Disp - Fg);
+
+            for (int i = 0; i < Nodes.Count; i++)
                 Nodes[i].LoadDisp(Disp[i * 3], Disp[i * 3 + 1], Disp[i * 3 + 2]);
         }
 
@@ -296,6 +528,27 @@ namespace ActiveControl
         public static void SolveNonlinear(List<Element> Elements, ref List<Node> Nodes, Vector<double> Fs,
             List<int> ConstrainedDOFIndex, List<int> CM_Elem_SoilSpring, List<SoilLayer> SoilLayers,
             double currentSurfaceElev, double elevOfCollar, out Vector<double> Disp, out Vector<double> RForce,
+            int maxIterations = 100, double tolerance = 1e-3, double relaxationFactor = 0.2)
+        {
+            Vector<double> PrescribedDisp =
+                Vector<double>.Build.Dense(Nodes.Count * 3, 0.0);
+
+            SolveNonlinear(
+                Elements, ref Nodes, Fs, ConstrainedDOFIndex,
+                CM_Elem_SoilSpring, SoilLayers,
+                currentSurfaceElev, elevOfCollar, PrescribedDisp,
+                out Disp, out RForce,
+                maxIterations, tolerance, relaxationFactor);
+        }
+
+        /// <summary>
+        /// 【方法】非线性有限元求解，允许约束自由度具有非零规定位移。
+        /// 土弹簧迭代逻辑不变，每次刚度迭代均使用同一规定位移。
+        /// </summary>
+        public static void SolveNonlinear(List<Element> Elements, ref List<Node> Nodes, Vector<double> Fs,
+            List<int> ConstrainedDOFIndex, List<int> CM_Elem_SoilSpring, List<SoilLayer> SoilLayers,
+            double currentSurfaceElev, double elevOfCollar, Vector<double> PrescribedDisp,
+            out Vector<double> Disp, out Vector<double> RForce,
             int maxIterations = 100, double tolerance = 1e-3, double relaxationFactor = 0.2)
         {
             // 输出非线性求解开始信息
@@ -355,7 +608,7 @@ namespace ActiveControl
                 iteration++;
 
                 // 1. 用当前刚度求解
-                Solve(Elements, ref Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                Solve(Elements, ref Nodes, Fs, ConstrainedDOFIndex, PrescribedDisp, out Disp, out RForce);
 
                 // 2. 更新土弹簧刚度
                 maxStiffnessChange = 0;
@@ -440,7 +693,7 @@ namespace ActiveControl
             }
             
             // 最后一次求解，确保结果一致
-            Solve(Elements, ref Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+            Solve(Elements, ref Nodes, Fs, ConstrainedDOFIndex, PrescribedDisp, out Disp, out RForce);
 
             // 输出收敛信息
             if (maxStiffnessChange <= tolerance)

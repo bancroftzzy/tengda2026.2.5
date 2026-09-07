@@ -58,9 +58,12 @@
             this.columnHeader10 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader7 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader11 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.columnHeaderJackStrokeMax = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.btnClearSupportInfo = new System.Windows.Forms.Button();
             this.label1 = new System.Windows.Forms.Label();
             this.tbSupportsMaxFT = new System.Windows.Forms.TextBox();
+            this.labelJackStrokeMax = new System.Windows.Forms.Label();
+            this.tbSupportsJackStrokeMax = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // cbSupportsAdjAble
@@ -281,7 +284,8 @@
             this.columnHeader6,
             this.columnHeader10,
             this.columnHeader7,
-            this.columnHeader11});
+            this.columnHeader11,
+            this.columnHeaderJackStrokeMax});
             this.lvSupports.Cursor = System.Windows.Forms.Cursors.Arrow;
             this.lvSupports.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lvSupports.FullRowSelect = true;
@@ -291,7 +295,7 @@
             this.lvSupports.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
             this.lvSupports.MultiSelect = false;
             this.lvSupports.Name = "lvSupports";
-            this.lvSupports.Size = new System.Drawing.Size(946, 260);
+            this.lvSupports.Size = new System.Drawing.Size(1092, 260);
             this.lvSupports.TabIndex = 55;
             this.lvSupports.UseCompatibleStateImageBehavior = false;
             this.lvSupports.View = System.Windows.Forms.View.Details;
@@ -345,6 +349,12 @@
             // 
             this.columnHeader11.Text = "轴力可调整";
             this.columnHeader11.Width = 120;
+            //
+            // columnHeaderJackStrokeMax
+            //
+            this.columnHeaderJackStrokeMax.Text = "千斤顶行程上限(mm)";
+            this.columnHeaderJackStrokeMax.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.columnHeaderJackStrokeMax.Width = 155;
             // 
             // btnClearSupportInfo
             // 
@@ -375,13 +385,35 @@
             this.tbSupportsMaxFT.Name = "tbSupportsMaxFT";
             this.tbSupportsMaxFT.Size = new System.Drawing.Size(84, 28);
             this.tbSupportsMaxFT.TabIndex = 7;
+            //
+            // labelJackStrokeMax
+            //
+            this.labelJackStrokeMax.AutoSize = true;
+            this.labelJackStrokeMax.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.labelJackStrokeMax.Location = new System.Drawing.Point(987, 86);
+            this.labelJackStrokeMax.Name = "labelJackStrokeMax";
+            this.labelJackStrokeMax.Size = new System.Drawing.Size(141, 40);
+            this.labelJackStrokeMax.TabIndex = 67;
+            this.labelJackStrokeMax.Text = "千斤顶行程上限\r\n        (mm)";
+            //
+            // tbSupportsJackStrokeMax
+            //
+            this.tbSupportsJackStrokeMax.Font = new System.Drawing.Font("Times New Roman", 10.8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.tbSupportsJackStrokeMax.Location = new System.Drawing.Point(1014, 134);
+            this.tbSupportsJackStrokeMax.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
+            this.tbSupportsJackStrokeMax.Name = "tbSupportsJackStrokeMax";
+            this.tbSupportsJackStrokeMax.Size = new System.Drawing.Size(84, 28);
+            this.tbSupportsJackStrokeMax.TabIndex = 9;
+            this.tbSupportsJackStrokeMax.Text = "200";
             // 
             // Form_SupportsInfo
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.White;
-            this.ClientSize = new System.Drawing.Size(994, 461);
+            this.ClientSize = new System.Drawing.Size(1144, 461);
+            this.Controls.Add(this.labelJackStrokeMax);
+            this.Controls.Add(this.tbSupportsJackStrokeMax);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.tbSupportsMaxFT);
             this.Controls.Add(this.cbSupportsAdjAble);
@@ -450,5 +482,8 @@
         private System.Windows.Forms.ColumnHeader columnHeader7;
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.TextBox tbSupportsMaxFT;
+        private System.Windows.Forms.ColumnHeader columnHeaderJackStrokeMax;
+        private System.Windows.Forms.Label labelJackStrokeMax;
+        private System.Windows.Forms.TextBox tbSupportsJackStrokeMax;
     }
 }

@@ -951,6 +951,8 @@ namespace ActiveControl.Forms
             mf.InistrnSum = Matrix<double>.Build.Dense(mf.Elements.Count(), mf.Loadcases.Count(), 0.0);
             mf.AliveSum = Matrix<double>.Build.Dense(mf.Elements.Count(), mf.Loadcases.Count());
             mf.IniForceSum = Matrix<double>.Build.Dense(mf.Supports.Count(), mf.Loadcases.Count(), 0.0);
+            mf.JackStrokeCurrent = Vector<double>.Build.Dense(mf.Supports.Count(), 0.0);
+            mf.JackStrokeSum = Matrix<double>.Build.Dense(mf.Supports.Count(), mf.Loadcases.Count(), 0.0);
 
             #endregion
         }
@@ -1017,7 +1019,10 @@ namespace ActiveControl.Forms
             if (mf.Loadcases[Loadcase.CurLCNo].IsActiveSupport == true)
             {
                 mf.Elements[CM_Elem_Supports[Loadcase.ActSupCount]].isAlive = true;
-                mf.Elements[CM_Elem_Supports[Loadcase.ActSupCount]].RealConstant.IniStrn = mf.Elements[CM_Elem_Supports[Loadcase.ActSupCount]].Right.Ux / mf.LengthOfSupports;
+                mf.Elements[CM_Elem_Supports[Loadcase.ActSupCount]].RealConstant.IniStrn =
+                    (mf.Elements[CM_Elem_Supports[Loadcase.ActSupCount]].Right.Ux -
+                     mf.Elements[CM_Elem_Supports[Loadcase.ActSupCount]].Left.Ux) /
+                    mf.LengthOfSupports;
                 Loadcase.ActSupCount++;
                 if (mf.Supports[Loadcase.ActSupCount - 1].AdjAble == true)
                     Loadcase.AdjSupIndex.Add(Loadcase.ActSupCount - 1);
@@ -1192,6 +1197,8 @@ namespace ActiveControl.Forms
                 mf.InistrnSum[i, Loadcase.CurLCNo - 1] = mf.Elements[i].RealConstant.IniStrn;
             for (int i = 0; i < mf.Elements.Count(); i++)       // 导出单元存活情况
                 mf.AliveSum[i, Loadcase.CurLCNo - 1] = Convert.ToInt32(mf.Elements[i].isAlive);
+            for (int i = 0; i < mf.Supports.Count(); i++)       // 导出千斤顶累计行程
+                mf.JackStrokeSum[i, Loadcase.CurLCNo - 1] = mf.JackStrokeCurrent[i];
         }
         private void GlobalPSO()                 // 全局粒子群优化算法
         {
@@ -1313,10 +1320,10 @@ namespace ActiveControl.Forms
 
                         // 随机初始值冲突检查 & 个体最优初始化
                         double f1, f2;
-                        if (FEM.Check(ForceIni1, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
+                        if (FEM.Check(ForceIni1, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent, out Disp, out RForce))
                         {
                             f1 = FEM.GetDispNormInf(mf.Nodes);
-                            if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
+                            if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent, out Disp, out RForce))
                             {
                                 f2 = FEM.GetDispNormInf(mf.Nodes);
                                 if (f1 < f2)
@@ -1350,7 +1357,7 @@ namespace ActiveControl.Forms
                             foundFeasible = true;
                             break;
                         }
-                        else if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
+                        else if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent, out Disp, out RForce))
                         {
                             f2 = FEM.GetDispNormInf(mf.Nodes);
                             for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
@@ -1452,7 +1459,7 @@ namespace ActiveControl.Forms
 
                         // 当前轴力冲突检验
                         double f;
-                        if (FEM.Check(ForceIni, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
+                        if (FEM.Check(ForceIni, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent, out Disp, out RForce))
                         {
                             f = FEM.GetDispNormInf(mf.Nodes);
                             if (f < FunPbest[iPt])     // 校核是否优于个体历史最优
@@ -1476,14 +1483,18 @@ namespace ActiveControl.Forms
                     }
 
 
-                    Vector<double> tempForceIni = ForceCohMat.Solve(Gbest);
+                    Vector<double> tempJackStrokeIncrement = ForceCohMat.Solve(Gbest);
+                    Vector<double> tempJackStrokeCandidate = mf.JackStrokeCurrent.Clone();
                     for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
-                        mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.IniStrn += tempForceIni[i] / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.Area;
-                    FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                        tempJackStrokeCandidate[Loadcase.AdjSupIndex[i]] += tempJackStrokeIncrement[i];
+                    Vector<double> tempPrescribedDisp = FEM.GetJackPrescribedDisp(
+                        mf.Elements, CM_Elem_Supports, tempJackStrokeCandidate,
+                        mf.Nodes.Count * 3);
+                    SolveWithMode(
+                        mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex,
+                        tempPrescribedDisp, out Disp, out RForce);
                     for (int i = 0; i < mf.Elements.Count(); i++)
                         mf.Elements[i].getNodalForce();
-                    for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
-                        mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.IniStrn -= tempForceIni[i] / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.Area;
 
 
                     Iter++;
@@ -1534,25 +1545,51 @@ namespace ActiveControl.Forms
 
                 // 搜索结束，检查搜索结果：若满足条件，给出各个轴力；若不满足，在屏幕上打出提示
                 //if (MinDef < EpsDefor * (ElevOfGround - curElev) && flag)
-                if (FEM.Check(Gbest, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
+                Vector<double> JackStrokeCandidate;
+                if (FEM.Check(Gbest, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, Loadcase.AdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent, out JackStrokeCandidate, out Disp, out RForce))
                 {
-                    Vector<double> DeltaInstr = ForceCohMat.Solve(Gbest);
-                    for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
-                        mf.IniForceSum[Loadcase.AdjSupIndex[iForce], Loadcase.CurLCNo - 1] = DeltaInstr[iForce];
+                    Vector<double> JackStrokeIncrement = ForceCohMat.Solve(Gbest);
+                    Vector<double> JackStrokeBefore = mf.JackStrokeCurrent.Clone();
                     // 合理轴力结果输出
                     mf.PrintString("施工阶段 " + (Loadcase.CurLCNo).ToString("0") + " 轴力主动调节完成！");
                     
                     Invoke(new Action(() =>
                     {
-                        mf.rtbOutputWindow.Text += "  " + "|支撑编号\t|初始轴力\t|理想轴力\t|轴力上限\r\n";
-                        mf.rtbOutputWindow.Text += "  " + "|       \t| (kN/m)\t| (kN/m)\t| (kN/m)\r\n";
-                        mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
+                        int[] summaryWidths = { 8, 14, 14, 14, 12, 12, 12, 12, 16, 16 };
+                        mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                            new[] { "支撑编号", "初始轴力(kN/m)", "理想轴力(kN/m)", "轴力增量(kN/m)",
+                                    "行程增量(mm)", "调前累计(mm)", "调后累计(mm)", "行程上限(mm)",
+                                    "接触点位移(mm)", "支撑压缩量(mm)" },
+                            summaryWidths, false);
+                        mf.rtbOutputWindow.Text += FormatOutputSeparator(summaryWidths);
                         for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
-                            mf.rtbOutputWindow.Text += "  " + (Loadcase.AdjSupIndex[iForce] + 1).ToString("0") + "\t\t" + (Force0[iForce] * 1e-3).ToString("0.00") + "      \t" + ((Force0[iForce] + Gbest[iForce]) * 1e-3).ToString("0.00") + "      \t" + (mf.Supports[Loadcase.AdjSupIndex[iForce]].MaxFC / mf.Supports[Loadcase.AdjSupIndex[iForce]].HrzDist * 1e-3).ToString("0.00") + "\r\n";
+                        {
+                            int supportIndex = Loadcase.AdjSupIndex[iForce];
+                            mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                                new[]
+                                {
+                                    (supportIndex + 1).ToString("0"),
+                                    (Force0[iForce] * 1e-3).ToString("F2"),
+                                    ((Force0[iForce] + Gbest[iForce]) * 1e-3).ToString("F2"),
+                                    (Gbest[iForce] * 1e-3).ToString("F2"),
+                                    (JackStrokeIncrement[iForce] * 1e3).ToString("F3"),
+                                    (JackStrokeBefore[supportIndex] * 1e3).ToString("F3"),
+                                    (JackStrokeCandidate[supportIndex] * 1e3).ToString("F3"),
+                                    (mf.Supports[supportIndex].JackStrokeMax * 1e3).ToString("F3"),
+                                    GetSupportContactDisplacementMm(supportIndex).ToString("F3"),
+                                    GetSupportCompressionMm(supportIndex).ToString("F3")
+                                },
+                                summaryWidths, true);
+                        }
 
                         // 轴力调整过程计算及输出
-                        mf.rtbOutputWindow.Text += "\r\n  " + "|支撑轴力调节过程：\r\n";
-                        mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
+                        int[] processWidths = { 4, 8, 18, 12, 12, 16, 16 };
+                        mf.rtbOutputWindow.Text += "\r\n千斤顶逐根调节过程：\r\n";
+                        mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                            new[] { "次序", "支撑编号", "轴力变化(kN/m)", "行程增量(mm)", "累计行程(mm)",
+                                    "接触点位移(mm)", "支撑压缩量(mm)" },
+                            processWidths, false);
+                        mf.rtbOutputWindow.Text += FormatOutputSeparator(processWidths);
 
                         Vector<double> Force1 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
                         Vector<double> Force2 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
@@ -1562,22 +1599,44 @@ namespace ActiveControl.Forms
                             mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[iForce]]].getNodalForce();
                             Force1[iForce] = -mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[iForce]]].jFx;
                         }
+                        Vector<double> JackStrokeWorking = JackStrokeBefore.Clone();
                         for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
                         {
                             int j = Loadcase.AdjSupIndex.Count() - iForce - 1;
-                            mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].RealConstant.IniStrn += DeltaInstr[j] / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].RealConstant.Area;
-                            SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                            int supportIndex = Loadcase.AdjSupIndex[j];
+                            JackStrokeWorking[supportIndex] = JackStrokeCandidate[supportIndex];
+                            Vector<double> PrescribedDisp = FEM.GetJackPrescribedDisp(
+                                mf.Elements, CM_Elem_Supports, JackStrokeWorking,
+                                mf.Nodes.Count * 3);
+                            SolveWithMode(
+                                mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex,
+                                PrescribedDisp, out Disp, out RForce);
                             UpdateEnvData();
-                            mf.rtbOutputWindow.Text += "  调节第 " + (Loadcase.AdjSupIndex[j] + 1).ToString("0") + " 根支撑......\r\n";
                             for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
                             {
                                 mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].getNodalForce();
                                 Force2[i] = -mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].jFx;
-                                mf.rtbOutputWindow.Text += "  支撑 " + (Loadcase.AdjSupIndex[i] + 1).ToString("0") + " : \t" + (Force1[i] * 1e-3).ToString("0.00") + "   \t=>   \t" + (Force2[i] * 1e-3).ToString("0.00") + "\r\n";
-                                Force1[i] = Force2[i];       // 注意不能直接在for循环外使用 Force1 = Force2, 否则为带地址复制
                             }
-                            mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
+
+                            mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                                new[]
+                                {
+                                    (iForce + 1).ToString("0"),
+                                    (supportIndex + 1).ToString("0"),
+                                    $"{Force1[j] * 1e-3:F2} => {Force2[j] * 1e-3:F2}",
+                                    (JackStrokeIncrement[j] * 1e3).ToString("F3"),
+                                    (JackStrokeWorking[supportIndex] * 1e3).ToString("F3"),
+                                    GetSupportContactDisplacementMm(supportIndex).ToString("F3"),
+                                    GetSupportCompressionMm(supportIndex).ToString("F3")
+                                },
+                                processWidths, true);
+
+                            for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
+                                Force1[i] = Force2[i];
                         }
+
+                        mf.JackStrokeCurrent = JackStrokeCandidate.Clone();
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
 
                         double MinDef = FEM.GetDispNormInf(mf.Nodes);
                         if (MinDef < mf.EpsDefor * (mf.ElevOfGround - Loadcase.CurElev))
@@ -1598,7 +1657,7 @@ namespace ActiveControl.Forms
             }
             else
             {
-                FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                 mf.PrintString("施工阶段 " + (Loadcase.CurLCNo).ToString("0") + " 计算完成，无需进行轴力主动调节！");
             }
         }
@@ -1742,10 +1801,10 @@ namespace ActiveControl.Forms
 
                         // 随机初始值冲突检查 & 个体最优初始化
                         double f1, f2;
-                        if (FEM.Check(ForceIni1, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
+                        if (FEM.Check(ForceIni1, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent, out Disp, out RForce))
                         {
                             f1 = FEM.GetDispNormInf(mf.Nodes);
-                            if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
+                            if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent, out Disp, out RForce))
                             {
                                 f2 = FEM.GetDispNormInf(mf.Nodes);
                                 if (f1 < f2)
@@ -1779,7 +1838,7 @@ namespace ActiveControl.Forms
                             foundFeasible = true;
                             break;
                         }
-                        else if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
+                        else if (FEM.Check(ForceIni2, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent, out Disp, out RForce))
                         {
                             f2 = FEM.GetDispNormInf(mf.Nodes);
                             for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
@@ -1863,7 +1922,7 @@ namespace ActiveControl.Forms
 
                         // 当前轴力冲突检验
                         double f;
-                        if (FEM.Check(ForceIni, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
+                        if (FEM.Check(ForceIni, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent, out Disp, out RForce))
                         {
                             f = FEM.GetDispNormInf(mf.Nodes);
                             if (f < FunPbest[iPt])     // 校核是否优于个体历史最优
@@ -1889,50 +1948,98 @@ namespace ActiveControl.Forms
 
                 // 搜索结束，检查搜索结果：若满足条件，给出各个轴力；若不满足，在屏幕上打出提示
                 //if (MinDef < EpsDefor * (ElevOfGround - curElev) && flag)
-                if (FEM.Check(Gbest, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, out Disp, out RForce))
+                Vector<double> PartJackStrokeCandidate;
+                if (FEM.Check(Gbest, ForceCohMat, mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS, CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex, mf.Elements, ref mf.Nodes, mf.Supports, Fs, ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent, out PartJackStrokeCandidate, out Disp, out RForce))
                 {
-                    Vector<double> DeltaInstr = ForceCohMat.Solve(Gbest);
-                    for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
-                        mf.IniForceSum[PartAdjSupIndex[iForce], Loadcase.CurLCNo - 1] = DeltaInstr[iForce];
+                    Vector<double> JackStrokeIncrement = ForceCohMat.Solve(Gbest);
+                    Vector<double> JackStrokeBefore = mf.JackStrokeCurrent.Clone();
                     // 合理轴力结果输出
                     mf.PrintString("施工阶段 " + (Loadcase.CurLCNo).ToString("0") + " 轴力主动调节完成！");
                     
                     Invoke(new Action(() =>
                     {
-                        mf.rtbOutputWindow.Text += "  " + "|支撑编号\t|初始轴力\t|理想轴力\t|轴力上限\r\n";
-                        mf.rtbOutputWindow.Text += "  " + "|       \t| (kN/m)\t| (kN/m)\t| (kN/m)\r\n";
-                        mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
+                        int[] summaryWidths = { 8, 14, 14, 14, 12, 12, 12, 12, 16, 16 };
+                        mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                            new[] { "支撑编号", "初始轴力(kN/m)", "理想轴力(kN/m)", "轴力增量(kN/m)",
+                                    "行程增量(mm)", "调前累计(mm)", "调后累计(mm)", "行程上限(mm)",
+                                    "接触点位移(mm)", "支撑压缩量(mm)" },
+                            summaryWidths, false);
+                        mf.rtbOutputWindow.Text += FormatOutputSeparator(summaryWidths);
                         for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
-                            mf.rtbOutputWindow.Text += "  " + (PartAdjSupIndex[iForce] + 1).ToString("0") + "\t\t" + (Force0[iForce] * 1e-3).ToString("0.00") + "      \t" + ((Force0[iForce] + Gbest[iForce]) * 1e-3).ToString("0.00") + "      \t" + (mf.Supports[PartAdjSupIndex[iForce]].MaxFC / mf.Supports[PartAdjSupIndex[iForce]].HrzDist * 1e-3).ToString("0.00") + "\r\n";
+                        {
+                            int supportIndex = PartAdjSupIndex[iForce];
+                            mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                                new[]
+                                {
+                                    (supportIndex + 1).ToString("0"),
+                                    (Force0[iForce] * 1e-3).ToString("F2"),
+                                    ((Force0[iForce] + Gbest[iForce]) * 1e-3).ToString("F2"),
+                                    (Gbest[iForce] * 1e-3).ToString("F2"),
+                                    (JackStrokeIncrement[iForce] * 1e3).ToString("F3"),
+                                    (JackStrokeBefore[supportIndex] * 1e3).ToString("F3"),
+                                    (PartJackStrokeCandidate[supportIndex] * 1e3).ToString("F3"),
+                                    (mf.Supports[supportIndex].JackStrokeMax * 1e3).ToString("F3"),
+                                    GetSupportContactDisplacementMm(supportIndex).ToString("F3"),
+                                    GetSupportCompressionMm(supportIndex).ToString("F3")
+                                },
+                                summaryWidths, true);
+                        }
 
                         // 轴力调整过程计算及输出
-                        mf.rtbOutputWindow.Text += "\r\n  " + "|支撑轴力调节过程：\r\n";
-                        mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
+                        int[] processWidths = { 4, 8, 18, 12, 12, 16, 16 };
+                        mf.rtbOutputWindow.Text += "\r\n千斤顶逐根调节过程：\r\n";
+                        mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                            new[] { "次序", "支撑编号", "轴力变化(kN/m)", "行程增量(mm)", "累计行程(mm)",
+                                    "接触点位移(mm)", "支撑压缩量(mm)" },
+                            processWidths, false);
+                        mf.rtbOutputWindow.Text += FormatOutputSeparator(processWidths);
 
-                        Vector<double> Force1 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
-                        Vector<double> Force2 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
+                        Vector<double> Force1 = Vector<double>.Build.Dense(PartAdjSupIndex.Count());
+                        Vector<double> Force2 = Vector<double>.Build.Dense(PartAdjSupIndex.Count());
                         SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                        for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
+                        for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
                         {
-                            mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[iForce]]].getNodalForce();
-                            Force1[iForce] = -mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[iForce]]].jFx;
+                            mf.Elements[CM_Elem_Supports[PartAdjSupIndex[iForce]]].getNodalForce();
+                            Force1[iForce] = -mf.Elements[CM_Elem_Supports[PartAdjSupIndex[iForce]]].jFx;
                         }
+                        Vector<double> JackStrokeWorking = JackStrokeBefore.Clone();
                         for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
                         {
                             int j = PartAdjSupIndex.Count() - iForce - 1;
-                            mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].RealConstant.IniStrn += DeltaInstr[j] / mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].RealConstant.Area;
-                            SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                            int supportIndex = PartAdjSupIndex[j];
+                            JackStrokeWorking[supportIndex] = PartJackStrokeCandidate[supportIndex];
+                            Vector<double> PrescribedDisp = FEM.GetJackPrescribedDisp(
+                                mf.Elements, CM_Elem_Supports, JackStrokeWorking,
+                                mf.Nodes.Count * 3);
+                            SolveWithMode(
+                                mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex,
+                                PrescribedDisp, out Disp, out RForce);
                             UpdateEnvData();
-                            mf.rtbOutputWindow.Text += "  调节第 " + (PartAdjSupIndex[j] + 1).ToString("0") + " 根支撑......\r\n";
-                            for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
+                            for (int i = 0; i < PartAdjSupIndex.Count(); i++)
                             {
-                                mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].getNodalForce();
-                                Force2[i] = -mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].jFx;
-                                mf.rtbOutputWindow.Text += "  支撑 " + (Loadcase.AdjSupIndex[i] + 1).ToString("0") + " : \t" + (Force1[i] * 1e-3).ToString("0.00") + "   \t=>   \t" + (Force2[i] * 1e-3).ToString("0.00") + "\r\n";
-                                Force1[i] = Force2[i];       // 注意不能直接在for循环外使用 Force1 = Force2, 否则为带地址复制
+                                mf.Elements[CM_Elem_Supports[PartAdjSupIndex[i]]].getNodalForce();
+                                Force2[i] = -mf.Elements[CM_Elem_Supports[PartAdjSupIndex[i]]].jFx;
                             }
-                            mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
+
+                            mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                                new[]
+                                {
+                                    (iForce + 1).ToString("0"),
+                                    (supportIndex + 1).ToString("0"),
+                                    $"{Force1[j] * 1e-3:F2} => {Force2[j] * 1e-3:F2}",
+                                    (JackStrokeIncrement[j] * 1e3).ToString("F3"),
+                                    (JackStrokeWorking[supportIndex] * 1e3).ToString("F3"),
+                                    GetSupportContactDisplacementMm(supportIndex).ToString("F3"),
+                                    GetSupportCompressionMm(supportIndex).ToString("F3")
+                                },
+                                processWidths, true);
+
+                            for (int i = 0; i < PartAdjSupIndex.Count(); i++)
+                                Force1[i] = Force2[i];
                         }
+
+                        mf.JackStrokeCurrent = PartJackStrokeCandidate.Clone();
+                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
 
                         double MinDef = FEM.GetDispNormInf(mf.Nodes);
                         if (MinDef < mf.EpsDefor * (mf.ElevOfGround - Loadcase.CurElev))
@@ -1953,112 +2060,149 @@ namespace ActiveControl.Forms
             }
             else
             {
-                FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                 mf.PrintString("施工阶段 " + (Loadcase.CurLCNo).ToString("0") + " 计算完成，无需进行轴力主动调节！");
             }
         }
         private void ZeroDisp()                  // 动态零位移法
         {
-            if (Loadcase.AdjSupIndex.Count() != 0)
+            if (Loadcase.AdjSupIndex.Count == 0)
             {
-                Matrix<double> ForceCohMat = GetCohMat();
-                // 计算当前支撑轴力
-                FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                Vector<double> Force0 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
-                for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
-                {
-                    mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].getNodalForce();
-                    Force0[i] = -mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].jFx;
-                }
-
-                Vector<double> Disp0 = Disp;
-                Vector<double> AdjustedVec = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());                                    // 声明受调向量
-                Matrix<double> InfluenceMat = Matrix<double>.Build.Dense(Loadcase.AdjSupIndex.Count(), Loadcase.AdjSupIndex.Count());     // 声明影响矩阵
-                for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
-                    AdjustedVec[i] = -mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].Right.Ux;
-                for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)             // 获得影响矩阵
-                {
-                    mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.IniStrn += 1 / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.Area;
-                    FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                    Vector<double> DeltaUx = Disp - Disp0;                         // 做差得到第 i 个支撑增加单位轴力引起的支护结构位移
-                    for (int j = 0; j < Loadcase.AdjSupIndex.Count(); j++)         // 计算影响矩阵中的各个元素
-                        InfluenceMat[j, i] = DeltaUx[(mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].Right.No - 1) * 3];
-                    mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.IniStrn -= 1 / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.Area;
-                }
-                Vector<double> AdjustVec = InfluenceMat.Solve(AdjustedVec);
-                //for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
-                //    mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.IniStrn += AdjustVec[i] / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.Area;
-
-                // 调整完毕，正式进行本施工阶段有限元计算
-                FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-
-                Vector<double> DeltaForce = ForceCohMat * AdjustVec;
-                for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
-                    mf.IniForceSum[Loadcase.AdjSupIndex[iForce], Loadcase.CurLCNo - 1] = AdjustVec[iForce];
-                // 合理轴力结果输出
-                mf.PrintString("施工阶段 " + (Loadcase.CurLCNo).ToString("0") + " 轴力主动调节完成！");
-
-                Invoke(new Action(() =>
-                {
-                    mf.rtbOutputWindow.Text += "  " + "|支撑编号\t|初始轴力\t|理想轴力\t|轴力上限\r\n";
-                    mf.rtbOutputWindow.Text += "  " + "|       \t| (kN/m)\t| (kN/m)\t| (kN/m)\r\n";
-                    mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
-                    for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
-                        mf.rtbOutputWindow.Text += "  " + (Loadcase.AdjSupIndex[iForce] + 1).ToString("0") + "\t\t" + (Force0[iForce] * 1e-3).ToString("0.00") + "      \t" + ((Force0[iForce] + DeltaForce[iForce]) * 1e-3).ToString("0.00") + "      \t" + (mf.Supports[Loadcase.AdjSupIndex[iForce]].MaxFC / mf.Supports[Loadcase.AdjSupIndex[iForce]].HrzDist * 1e-3).ToString("0.00") + "\r\n";
-
-                    // 轴力调整过程计算及输出
-                    mf.rtbOutputWindow.Text += "\r\n  " + "|支撑轴力调节过程：\r\n";
-                    mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
-
-                    Vector<double> Force1 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
-                    Vector<double> Force2 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
-                    FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                    for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
-                    {
-                        mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[iForce]]].getNodalForce();
-                        Force1[iForce] = -mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[iForce]]].jFx;
-                    }
-                    for (int iForce = 0; iForce < Loadcase.AdjSupIndex.Count(); iForce++)
-                    {
-                        int j = Loadcase.AdjSupIndex.Count() - iForce - 1;
-                        mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].RealConstant.IniStrn += AdjustVec[j] / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].RealConstant.Area;
-                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                        UpdateEnvData();
-                        mf.rtbOutputWindow.Text += "  调节第 " + (Loadcase.AdjSupIndex[j] + 1).ToString("0") + " 根支撑......\r\n";
-                        for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
-                        {
-                            mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].getNodalForce();
-                            Force2[i] = -mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].jFx;
-                            mf.rtbOutputWindow.Text += "  支撑 " + (Loadcase.AdjSupIndex[i] + 1).ToString("0") + " : \t" + (Force1[i] * 1e-3).ToString("0.00") + "   \t=>   \t" + (Force2[i] * 1e-3).ToString("0.00") + "\r\n";
-                            Force1[i] = Force2[i];       // 注意不能直接在for循环外使用 Force1 = Force2, 否则为带地址复制
-                        }
-                        mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
-                    }
-
-                    double MinDef = FEM.GetDispNormInf(mf.Nodes);
-                    if (MinDef < mf.EpsDefor * (mf.ElevOfGround - Loadcase.CurElev))
-                        mf.PrintString("围护结构最大位移" + (MinDef * 1e3).ToString("0.00") + "mm，小于限值" + (mf.EpsDefor * (mf.ElevOfGround - Loadcase.CurElev) * 1e3).ToString("0.00") + "mm。");
-                    else
-                        mf.PrintString("围护结构最大位移" + (MinDef * 1e3).ToString("0.00") + "mm，超过限值" + (mf.EpsDefor * (mf.ElevOfGround - Loadcase.CurElev) * 1e3).ToString("0.00") + "mm。");
-
-                    mf.rtbOutputWindow.Text += "\r\n\r\n";
-                    mf.rtbOutputWindow.SelectionStart = mf.rtbOutputWindow.Text.Length;
-                    mf.rtbOutputWindow.ScrollToCaret();
-                }));
-            }
-            else
-            {
-                FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
                 mf.PrintString("施工阶段 " + (Loadcase.CurLCNo).ToString("0") + " 计算完成，无需进行轴力主动调节！");
+                return;
             }
 
+            int adjustableCount = Loadcase.AdjSupIndex.Count;
+            SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+
+            Vector<double> AdjustedVec = Vector<double>.Build.Dense(adjustableCount);
+            Matrix<double> InfluenceMat = Matrix<double>.Build.Dense(
+                adjustableCount, adjustableCount, 0.0);
+
+            for (int i = 0; i < adjustableCount; i++)
+            {
+                int supportIndex = Loadcase.AdjSupIndex[i];
+                AdjustedVec[i] = -mf.Elements[CM_Elem_Supports[supportIndex]].Right.Ux;
+            }
+
+            // 用1mm千斤顶试探行程建立“行程-墙体位移”影响矩阵。
+            for (int i = 0; i < adjustableCount; i++)
+            {
+                int supportIndex = Loadcase.AdjSupIndex[i];
+                double remainingStroke =
+                    mf.Supports[supportIndex].JackStrokeMax - mf.JackStrokeCurrent[supportIndex];
+                double probeStroke = remainingStroke > 1.0e-12
+                    ? Math.Min(1.0e-3, remainingStroke)
+                    : -Math.Min(1.0e-3, mf.JackStrokeCurrent[supportIndex]);
+
+                if (Math.Abs(probeStroke) < 1.0e-12)
+                {
+                    mf.PrintString($"动态零位移法失败：第{supportIndex + 1}根支撑没有可用千斤顶行程。");
+                    return;
+                }
+
+                Vector<double> probeJackStroke = mf.JackStrokeCurrent.Clone();
+                probeJackStroke[supportIndex] += probeStroke;
+                Vector<double> PrescribedDisp = FEM.GetJackPrescribedDisp(
+                    mf.Elements, CM_Elem_Supports, probeJackStroke,
+                    mf.Nodes.Count * 3);
+                SolveWithMode(
+                    mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex,
+                    PrescribedDisp, out Disp, out RForce);
+
+                for (int j = 0; j < adjustableCount; j++)
+                {
+                    int measuredSupportIndex = Loadcase.AdjSupIndex[j];
+                    double probeUx =
+                        mf.Elements[CM_Elem_Supports[measuredSupportIndex]].Right.Ux;
+                    InfluenceMat[j, i] =
+                        (probeUx + AdjustedVec[j]) / probeStroke;
+                }
+            }
+
+            Vector<double> JackStrokeIncrement;
+            try
+            {
+                JackStrokeIncrement = InfluenceMat.Solve(AdjustedVec);
+            }
+            catch (Exception ex)
+            {
+                mf.PrintString("动态零位移法反算千斤顶行程失败：" + ex.Message);
+                return;
+            }
+
+            Vector<double> JackStrokeBefore = mf.JackStrokeCurrent.Clone();
+            Vector<double> JackStrokeCandidate = mf.JackStrokeCurrent.Clone();
+            for (int i = 0; i < adjustableCount; i++)
+            {
+                int supportIndex = Loadcase.AdjSupIndex[i];
+                JackStrokeCandidate[supportIndex] += JackStrokeIncrement[i];
+
+                if (JackStrokeCandidate[supportIndex] < -1.0e-9 ||
+                    JackStrokeCandidate[supportIndex] >
+                    mf.Supports[supportIndex].JackStrokeMax + 1.0e-9)
+                {
+                    mf.PrintString(
+                        $"动态零位移法失败：第{supportIndex + 1}根支撑累计行程" +
+                        $"{JackStrokeCandidate[supportIndex] * 1e3:F3}mm超出允许范围。");
+                    return;
+                }
+
+                JackStrokeCandidate[supportIndex] = Math.Max(
+                    0.0,
+                    Math.Min(
+                        mf.Supports[supportIndex].JackStrokeMax,
+                        JackStrokeCandidate[supportIndex]));
+            }
+
+            Vector<double> finalPrescribedDisp = FEM.GetJackPrescribedDisp(
+                mf.Elements, CM_Elem_Supports, JackStrokeCandidate,
+                mf.Nodes.Count * 3);
+            SolveWithMode(
+                mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex,
+                finalPrescribedDisp, out Disp, out RForce);
+            mf.JackStrokeCurrent = JackStrokeCandidate.Clone();
+            UpdateEnvData();
+
+            mf.PrintString("施工阶段 " + Loadcase.CurLCNo.ToString("0") + " 动态零位移调节完成！");
+            Invoke(new Action(() =>
+            {
+                int[] widths = { 8, 12, 12, 12, 12, 16, 16 };
+                mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                    new[] { "支撑编号", "行程增量(mm)", "调前累计(mm)",
+                            "调后累计(mm)", "行程上限(mm)",
+                            "接触点位移(mm)", "支撑压缩量(mm)" },
+                    widths, false);
+                mf.rtbOutputWindow.Text += FormatOutputSeparator(widths);
+
+                for (int i = 0; i < adjustableCount; i++)
+                {
+                    int supportIndex = Loadcase.AdjSupIndex[i];
+                    mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                        new[]
+                        {
+                            (supportIndex + 1).ToString("0"),
+                            (JackStrokeIncrement[i] * 1e3).ToString("F3"),
+                            (JackStrokeBefore[supportIndex] * 1e3).ToString("F3"),
+                            (JackStrokeCandidate[supportIndex] * 1e3).ToString("F3"),
+                            (mf.Supports[supportIndex].JackStrokeMax * 1e3).ToString("F3"),
+                            GetSupportContactDisplacementMm(supportIndex).ToString("F3"),
+                            GetSupportCompressionMm(supportIndex).ToString("F3")
+                        },
+                        widths, true);
+                }
+
+                mf.rtbOutputWindow.Text += "\r\n";
+                mf.rtbOutputWindow.SelectionStart = mf.rtbOutputWindow.Text.Length;
+                mf.rtbOutputWindow.ScrollToCaret();
+            }));
         }
         private void Manual(Vector<double> ManualForce)    // 手动赋值
         {
-            // 获取分区支撑索引，该索引集合为原可调支撑（钢支撑）索引集合的子集。分区以混凝土支撑为界。
             List<int> PartAdjSupIndex = new List<int>();
             List<double> PartForce = new List<double>();
-            for(int i = 0; i < ManualForce.Count(); i++)
+            for (int i = 0; i < ManualForce.Count(); i++)
             {
                 if (ManualForce[i] < 1e11)
                 {
@@ -2067,15 +2211,25 @@ namespace ActiveControl.Forms
                 }
             }
 
+            if (PartAdjSupIndex.Count == 0)
+                return;
+
             // 获取影响矩阵
             Matrix<double> tempForceCohMat = GetCohMat();
-            Matrix<double> ForceCohMat = Matrix<double>.Build.Dense(PartAdjSupIndex.Count(), PartAdjSupIndex.Count(), 0.0);
+            Matrix<double> ForceCohMat = Matrix<double>.Build.Dense(
+                PartAdjSupIndex.Count, PartAdjSupIndex.Count, 0.0);
             for (int i = 0; i < PartAdjSupIndex.Count(); i++)
+            {
+                int sourceRow = Loadcase.AdjSupIndex.IndexOf(PartAdjSupIndex[i]);
                 for (int j = 0; j < PartAdjSupIndex.Count(); j++)
-                    ForceCohMat[PartAdjSupIndex.Count() - i - 1, PartAdjSupIndex.Count() - j - 1] = tempForceCohMat[Loadcase.AdjSupIndex.Count() - i - 1, Loadcase.AdjSupIndex.Count() - j - 1];
+                {
+                    int sourceColumn = Loadcase.AdjSupIndex.IndexOf(PartAdjSupIndex[j]);
+                    ForceCohMat[i, j] = tempForceCohMat[sourceRow, sourceColumn];
+                }
+            }
 
             // 计算当前支撑轴力
-            FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+            SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
             Vector<double> Force0 = Vector<double>.Build.Dense(PartAdjSupIndex.Count());
             for (int i = 0; i < PartAdjSupIndex.Count(); i++)
             {
@@ -2084,63 +2238,121 @@ namespace ActiveControl.Forms
             }
 
             Vector<double> tempVec = Vector<double>.Build.Dense(PartAdjSupIndex.Count());
-            for(int i = 0; i < PartAdjSupIndex.Count(); i++)
+            for (int i = 0; i < PartAdjSupIndex.Count(); i++)
                 tempVec[i] = PartForce[i] - Force0[i];
-            Vector<double> DeltaInstr = ForceCohMat.Solve(tempVec);
-            for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
-                mf.IniForceSum[PartAdjSupIndex[iForce], Loadcase.CurLCNo - 1] = DeltaInstr[iForce];
 
-            // 合理轴力结果输出
-            if (PartAdjSupIndex.Count() > 0)
+            Vector<double> ManualJackStrokeCandidate;
+            if (!FEM.Check(
+                tempVec, ForceCohMat,
+                mf.MaxMommentOfECS1, mf.MaxMommentOfECS2, mf.MaxShearForceOfECS,
+                CM_Elem_ECS, CM_Elem_Supports, PartAdjSupIndex,
+                mf.Elements, ref mf.Nodes, mf.Supports, Fs,
+                ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent,
+                out ManualJackStrokeCandidate, out Disp, out RForce))
             {
-                Invoke(new Action(() =>
-                {
-                    mf.rtbOutputWindow.Text += "  " + "|支撑编号\t|初始轴力\t|理想轴力\t|轴力上限\r\n";
-                    mf.rtbOutputWindow.Text += "  " + "|       \t| (kN/m)\t| (kN/m)\t| (kN/m)\r\n";
-                    mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
-                    for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
-                        mf.rtbOutputWindow.Text += "  " + (PartAdjSupIndex[iForce] + 1).ToString("0") + "\t\t" + (Force0[iForce] * 1e-3).ToString("0.00") + "      \t" + (PartForce[iForce] * 1e-3).ToString("0.00") + "      \t" + (mf.Supports[PartAdjSupIndex[iForce]].MaxFC / mf.Supports[PartAdjSupIndex[iForce]].HrzDist * 1e-3).ToString("0.00") + "\r\n";
-
-                    // 轴力调整过程计算及输出
-                    mf.rtbOutputWindow.Text += "\r\n  " + "|支撑轴力调节过程：\r\n";
-                    mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
-
-                    Vector<double> Force1 = Vector<double>.Build.Dense(PartAdjSupIndex.Count());
-                    Vector<double> Force2 = Vector<double>.Build.Dense(PartAdjSupIndex.Count());
-                    FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                    for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
-                    {
-                        mf.Elements[CM_Elem_Supports[PartAdjSupIndex[iForce]]].getNodalForce();
-                        Force1[iForce] = -mf.Elements[CM_Elem_Supports[PartAdjSupIndex[iForce]]].jFx;
-                    }
-                    for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
-                    {
-                        int j = PartAdjSupIndex.Count() - iForce - 1;
-                        mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].RealConstant.IniStrn += DeltaInstr[j] / mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[PartAdjSupIndex[j]]].RealConstant.Area;
-                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                        UpdateEnvData();
-                        mf.rtbOutputWindow.Text += "  调节第 " + (PartAdjSupIndex[j] + 1).ToString("0") + " 根支撑......\r\n";
-                        for (int i = 0; i < PartAdjSupIndex.Count(); i++)
-                        {
-                            mf.Elements[CM_Elem_Supports[PartAdjSupIndex[i]]].getNodalForce();
-                            Force2[i] = -mf.Elements[CM_Elem_Supports[PartAdjSupIndex[i]]].jFx;
-                            mf.rtbOutputWindow.Text += "  支撑 " + (PartAdjSupIndex[i] + 1).ToString("0") + " : \t" + (Force1[i] * 1e-3).ToString("0.00") + "   \t=>   \t" + (Force2[i] * 1e-3).ToString("0.00") + "\r\n";
-                            Force1[i] = Force2[i];       // 注意不能直接在for循环外使用 Force1 = Force2, 否则为带地址复制
-                        }
-                        mf.rtbOutputWindow.Text += "  " + "----------------------------------------------------\r\n";
-                    }
-
-                    double MinDef = FEM.GetDispNormInf(mf.Nodes);
-                    if (MinDef < mf.EpsDefor * (mf.ElevOfGround - Loadcase.CurElev))
-                        mf.PrintString("围护结构最大位移" + (MinDef * 1e3).ToString("0.00") + "mm，小于限值" + (mf.EpsDefor * (mf.ElevOfGround - Loadcase.CurElev) * 1e3).ToString("0.00") + "mm。支撑轴力调整结果：");
-                    else
-                        mf.PrintString("围护结构最大位移" + (MinDef * 1e3).ToString("0.00") + "mm，超过限值" + (mf.EpsDefor * (mf.ElevOfGround - Loadcase.CurElev) * 1e3).ToString("0.00") + "mm。支撑轴力调整结果：");
-
-                    mf.rtbOutputWindow.Text += "\r\n\r\n";
-                    mf.rtbOutputWindow.SelectionStart = mf.rtbOutputWindow.Text.Length;
-                    mf.rtbOutputWindow.ScrollToCaret();
-                }));
+                mf.PrintString("手动轴力对应的千斤顶行程或结构内力不满足约束，未执行调节。");
+                return;
             }
+
+            Vector<double> JackStrokeIncrement = ForceCohMat.Solve(tempVec);
+            Vector<double> JackStrokeBefore = mf.JackStrokeCurrent.Clone();
+
+            Invoke(new Action(() =>
+            {
+                int[] summaryWidths = { 8, 14, 14, 14, 12, 12, 12, 12, 16, 16 };
+                mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                    new[] { "支撑编号", "初始轴力(kN/m)", "理想轴力(kN/m)", "轴力增量(kN/m)",
+                            "行程增量(mm)", "调前累计(mm)", "调后累计(mm)", "行程上限(mm)",
+                            "接触点位移(mm)", "支撑压缩量(mm)" },
+                    summaryWidths, false);
+                mf.rtbOutputWindow.Text += FormatOutputSeparator(summaryWidths);
+                for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
+                {
+                    int supportIndex = PartAdjSupIndex[iForce];
+                    mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                        new[]
+                        {
+                            (supportIndex + 1).ToString("0"),
+                            (Force0[iForce] * 1e-3).ToString("F2"),
+                            (PartForce[iForce] * 1e-3).ToString("F2"),
+                            (tempVec[iForce] * 1e-3).ToString("F2"),
+                            (JackStrokeIncrement[iForce] * 1e3).ToString("F3"),
+                            (JackStrokeBefore[supportIndex] * 1e3).ToString("F3"),
+                            (ManualJackStrokeCandidate[supportIndex] * 1e3).ToString("F3"),
+                            (mf.Supports[supportIndex].JackStrokeMax * 1e3).ToString("F3"),
+                            GetSupportContactDisplacementMm(supportIndex).ToString("F3"),
+                            GetSupportCompressionMm(supportIndex).ToString("F3")
+                        },
+                        summaryWidths, true);
+                }
+
+                int[] processWidths = { 4, 8, 18, 12, 12, 16, 16 };
+                mf.rtbOutputWindow.Text += "\r\n千斤顶逐根调节过程：\r\n";
+                mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                    new[] { "次序", "支撑编号", "轴力变化(kN/m)", "行程增量(mm)", "累计行程(mm)",
+                            "接触点位移(mm)", "支撑压缩量(mm)" },
+                    processWidths, false);
+                mf.rtbOutputWindow.Text += FormatOutputSeparator(processWidths);
+
+                Vector<double> Force1 = Vector<double>.Build.Dense(PartAdjSupIndex.Count());
+                Vector<double> Force2 = Vector<double>.Build.Dense(PartAdjSupIndex.Count());
+                SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
+                {
+                    mf.Elements[CM_Elem_Supports[PartAdjSupIndex[iForce]]].getNodalForce();
+                    Force1[iForce] = -mf.Elements[CM_Elem_Supports[PartAdjSupIndex[iForce]]].jFx;
+                }
+
+                Vector<double> JackStrokeWorking = JackStrokeBefore.Clone();
+                for (int iForce = 0; iForce < PartAdjSupIndex.Count(); iForce++)
+                {
+                    int j = PartAdjSupIndex.Count() - iForce - 1;
+                    int supportIndex = PartAdjSupIndex[j];
+                    JackStrokeWorking[supportIndex] = ManualJackStrokeCandidate[supportIndex];
+                    Vector<double> PrescribedDisp = FEM.GetJackPrescribedDisp(
+                        mf.Elements, CM_Elem_Supports, JackStrokeWorking,
+                        mf.Nodes.Count * 3);
+                    SolveWithMode(
+                        mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex,
+                        PrescribedDisp, out Disp, out RForce);
+                    UpdateEnvData();
+
+                    for (int i = 0; i < PartAdjSupIndex.Count(); i++)
+                    {
+                        mf.Elements[CM_Elem_Supports[PartAdjSupIndex[i]]].getNodalForce();
+                        Force2[i] = -mf.Elements[CM_Elem_Supports[PartAdjSupIndex[i]]].jFx;
+                    }
+
+                    mf.rtbOutputWindow.Text += FormatOutputTableRow(
+                        new[]
+                        {
+                            (iForce + 1).ToString("0"),
+                            (supportIndex + 1).ToString("0"),
+                            $"{Force1[j] * 1e-3:F2} => {Force2[j] * 1e-3:F2}",
+                            (JackStrokeIncrement[j] * 1e3).ToString("F3"),
+                            (JackStrokeWorking[supportIndex] * 1e3).ToString("F3"),
+                            GetSupportContactDisplacementMm(supportIndex).ToString("F3"),
+                            GetSupportCompressionMm(supportIndex).ToString("F3")
+                        },
+                        processWidths, true);
+
+                    for (int i = 0; i < PartAdjSupIndex.Count(); i++)
+                        Force1[i] = Force2[i];
+                }
+
+                mf.JackStrokeCurrent = ManualJackStrokeCandidate.Clone();
+                SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+
+                double MinDef = FEM.GetDispNormInf(mf.Nodes);
+                if (MinDef < mf.EpsDefor * (mf.ElevOfGround - Loadcase.CurElev))
+                    mf.PrintString("围护结构最大位移" + (MinDef * 1e3).ToString("0.00") + "mm，小于限值" + (mf.EpsDefor * (mf.ElevOfGround - Loadcase.CurElev) * 1e3).ToString("0.00") + "mm。支撑轴力调整结果：");
+                else
+                    mf.PrintString("围护结构最大位移" + (MinDef * 1e3).ToString("0.00") + "mm，超过限值" + (mf.EpsDefor * (mf.ElevOfGround - Loadcase.CurElev) * 1e3).ToString("0.00") + "mm。支撑轴力调整结果：");
+
+                mf.rtbOutputWindow.Text += "\r\n\r\n";
+                mf.rtbOutputWindow.SelectionStart = mf.rtbOutputWindow.Text.Length;
+                mf.rtbOutputWindow.ScrollToCaret();
+            }));
         }
         private void UpdateEnvData()             // 更新包络数据
         {
@@ -2182,41 +2394,189 @@ namespace ActiveControl.Forms
             }
 
         }
+
+        /// <summary>
+        /// 返回支撑与围护结构接触点的水平位移，单位mm。
+        /// 支撑Right节点为围护结构一端，数值保留全局X方向的正负号。
+        /// </summary>
+        private double GetSupportContactDisplacementMm(int supportIndex)
+        {
+            Element supportElement = mf.Elements[CM_Elem_Supports[supportIndex]];
+            return supportElement.Right.Ux * 1e3;
+        }
+
+        /// <summary>
+        /// 返回支撑弹性压缩量，单位mm。
+        /// 按 delta = N * L / (E * A) 计算；受压为正，受拉为负。
+        /// </summary>
+        private double GetSupportCompressionMm(int supportIndex)
+        {
+            Element supportElement = mf.Elements[CM_Elem_Supports[supportIndex]];
+            supportElement.getNodalForce();
+
+            double compressionForce = -supportElement.jFx;
+            double elementLength = GetElementLength(
+                supportElement.Left,
+                supportElement.Right);
+            double axialRigidity =
+                supportElement.Material.Emodulus *
+                supportElement.RealConstant.Area;
+
+            if (Math.Abs(axialRigidity) < 1.0e-12)
+                return 0.0;
+
+            return compressionForce * elementLength / axialRigidity * 1e3;
+        }
+
+        /// <summary>
+        /// 计算输出窗口中的文本显示宽度。
+        /// 中文字符按2个半角字符计算，用于保证中英文混排时表格列对齐。
+        /// </summary>
+        private static int GetOutputDisplayWidth(string text)
+        {
+            int width = 0;
+            foreach (char c in text ?? string.Empty)
+                width += c > 255 ? 2 : 1;
+
+            return width;
+        }
+
+        /// <summary>
+        /// 按显示宽度填充单元格。
+        /// </summary>
+        private static string PadOutputCell(
+            string text,
+            int displayWidth,
+            bool alignRight)
+        {
+            text = text ?? string.Empty;
+            int padding = Math.Max(
+                0,
+                displayWidth - GetOutputDisplayWidth(text));
+
+            return alignRight
+                ? new string(' ', padding) + text
+                : text + new string(' ', padding);
+        }
+
+        /// <summary>
+        /// 生成一行固定显示宽度的输出表格。
+        /// </summary>
+        private static string FormatOutputTableRow(
+            string[] cells,
+            int[] widths,
+            bool alignRight)
+        {
+            if (cells == null || widths == null || cells.Length != widths.Length)
+                throw new ArgumentException("输出表格单元格数量与列宽数量不一致。");
+
+            StringBuilder row = new StringBuilder("|");
+            for (int i = 0; i < cells.Length; i++)
+            {
+                row.Append(PadOutputCell(cells[i], widths[i], alignRight));
+                row.Append('|');
+            }
+
+            row.Append("\r\n");
+            return row.ToString();
+        }
+
+        /// <summary>
+        /// 生成与指定表格同宽的分隔线。
+        /// </summary>
+        private static string FormatOutputSeparator(int[] widths)
+        {
+            if (widths == null)
+                throw new ArgumentNullException(nameof(widths));
+
+            int length = widths.Sum() + widths.Length + 1;
+            return new string('-', length) + "\r\n";
+        }
+
         private Matrix<double> GetCohMat()       // 计算轴力相干性影响矩阵
         {
-            for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
+            int adjustableCount = Loadcase.AdjSupIndex.Count;
+            Matrix<double> ForceCohMat = Matrix<double>.Build.Dense(
+                adjustableCount, adjustableCount, 0.0);
+
+            if (adjustableCount == 0)
+                return ForceCohMat;
+
+            for (int i = 0; i < adjustableCount; i++)
             {
-                var elem = mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]];
-                Console.WriteLine($"支撑 {i}: Emodulus={elem.Material.Emodulus}, Area={elem.RealConstant.Area}");
-                
-                if (elem.Material.Emodulus == 0 || elem.RealConstant.Area == 0)
+                int supportIndex = Loadcase.AdjSupIndex[i];
+                Element supportElement = mf.Elements[CM_Elem_Supports[supportIndex]];
+
+                if (!supportElement.isAlive)
                 {
-                    mf.PrintString($"警告：支撑 {i} 的参数异常！Emodulus={elem.Material.Emodulus}, Area={elem.RealConstant.Area}");
-                }
-            }
-    
-            Matrix<double> ForceCohMat = Matrix<double>.Build.Dense(Loadcase.AdjSupIndex.Count(), Loadcase.AdjSupIndex.Count());
-            FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-            for (int i = 0; i < Loadcase.AdjSupIndex.Count(); i++)
-            {
-                Vector<double> jFx0 = Vector<double>.Build.Dense(Loadcase.AdjSupIndex.Count());
-                for (int j = 0; j < Loadcase.AdjSupIndex.Count(); j++)
-                {
-                    mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].getNodalForce();
-                    jFx0[j] = mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].jFx;
+                    mf.PrintString($"警告：第{supportIndex + 1}根可调支撑尚未激活，影响矩阵对应列置零。");
+                    continue;
                 }
 
-                mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.IniStrn += 1 / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.Area;
-                FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                for (int j = 0; j < Loadcase.AdjSupIndex.Count(); j++)              // 计算影响矩阵中的各个元素
+                // 当前累计行程对应的基准轴力。
+                Vector<double> basePrescribedDisp = FEM.GetJackPrescribedDisp(
+                    mf.Elements, CM_Elem_Supports, mf.JackStrokeCurrent,
+                    mf.Nodes.Count * 3);
+                SolveWithMode(
+                    mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex,
+                    basePrescribedDisp, out Disp, out RForce);
+
+                Vector<double> jFx0 = Vector<double>.Build.Dense(adjustableCount);
+                for (int j = 0; j < adjustableCount; j++)
                 {
-                    mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].getNodalForce();
-                    ForceCohMat[j, i] = -(mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]].jFx - jFx0[j]);
+                    Element measuredElement =
+                        mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]];
+                    measuredElement.getNodalForce();
+                    jFx0[j] = measuredElement.jFx;
                 }
 
-                mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.IniStrn -= 1 / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].Material.Emodulus / mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[i]]].RealConstant.Area;
-                FEM.Solve(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                // 优先向顶出方向试探1mm；达到上限时改为回缩方向试探。
+                double currentStroke = mf.JackStrokeCurrent[supportIndex];
+                double remainingStroke =
+                    mf.Supports[supportIndex].JackStrokeMax - currentStroke;
+                double probeStroke;
+
+                if (remainingStroke > 1.0e-12)
+                {
+                    probeStroke = Math.Min(1.0e-3, remainingStroke);
+                }
+                else if (currentStroke > 1.0e-12)
+                {
+                    probeStroke = -Math.Min(1.0e-3, currentStroke);
+                }
+                else
+                {
+                    mf.PrintString($"警告：第{supportIndex + 1}根支撑千斤顶没有可用行程，影响矩阵对应列置零。");
+                    continue;
+                }
+
+                Vector<double> probeJackStroke = mf.JackStrokeCurrent.Clone();
+                probeJackStroke[supportIndex] += probeStroke;
+                Vector<double> probePrescribedDisp = FEM.GetJackPrescribedDisp(
+                    mf.Elements, CM_Elem_Supports, probeJackStroke,
+                    mf.Nodes.Count * 3);
+                SolveWithMode(
+                    mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex,
+                    probePrescribedDisp, out Disp, out RForce);
+
+                for (int j = 0; j < adjustableCount; j++)
+                {
+                    Element measuredElement =
+                        mf.Elements[CM_Elem_Supports[Loadcase.AdjSupIndex[j]]];
+                    measuredElement.getNodalForce();
+                    ForceCohMat[j, i] =
+                        -(measuredElement.jFx - jFx0[j]) / probeStroke;
+                }
             }
+
+            // 试探结束后恢复到当前累计行程所对应的结构状态。
+            Vector<double> restorePrescribedDisp = FEM.GetJackPrescribedDisp(
+                mf.Elements, CM_Elem_Supports, mf.JackStrokeCurrent,
+                mf.Nodes.Count * 3);
+            SolveWithMode(
+                mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex,
+                restorePrescribedDisp, out Disp, out RForce);
+
             return ForceCohMat;
         }
 
@@ -2249,18 +2609,37 @@ namespace ActiveControl.Forms
                                    Vector<double> Fs, List<int> ConstrainedDOFIndex,
                                    out Vector<double> Disp, out Vector<double> RForce)
         {
+            Vector<double> PrescribedDisp = FEM.GetJackPrescribedDisp(
+                Elements, CM_Elem_Supports, mf.JackStrokeCurrent,
+                Nodes.Count * 3);
+
+            SolveWithMode(
+                Elements, ref Nodes, Fs, ConstrainedDOFIndex, PrescribedDisp,
+                out Disp, out RForce);
+        }
+
+        /// <summary>
+        /// 统一的求解方法，允许传入千斤顶端的非零规定位移。
+        /// </summary>
+        private void SolveWithMode(List<Element> Elements, ref List<Node> Nodes,
+                                   Vector<double> Fs, List<int> ConstrainedDOFIndex,
+                                   Vector<double> PrescribedDisp,
+                                   out Vector<double> Disp, out Vector<double> RForce)
+        {
             if (Loadcase.UseNonlinearSoilSpring)
             {
                 // 非线性求解：使用邓肯-张模型迭代
                 FEM.SolveNonlinear(Elements, ref Nodes, Fs, ConstrainedDOFIndex,
                                    CM_Elem_SoilSpring, mf.SoilLayers,
-                                   Loadcase.CurElev, mf.ElevOfCollar,
+                                   Loadcase.CurElev, mf.ElevOfCollar, PrescribedDisp,
                                    out Disp, out RForce);
             }
             else
             {
                 // 线性求解：刚度不变
-                FEM.Solve(Elements, ref Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
+                FEM.Solve(
+                    Elements, ref Nodes, Fs, ConstrainedDOFIndex, PrescribedDisp,
+                    out Disp, out RForce);
             }
         }
 

@@ -348,7 +348,6 @@ E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\System
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\System.Security.Principal.Windows.dll
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\bin\Debug\MathNet.Numerics.xml
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.csproj.AssemblyReference.cache
-E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.exe.config
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.Forms.Form_Calculate.resources
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.Forms.Form_LoadcasesInfo.resources
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.Form_Main.resources
@@ -397,3 +396,9 @@ D:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\Active
 D:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveCo.4DD4EB9A.Up2Date
 D:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.Forms.Form_LocalLoadsInfo.resources
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.Forms.Form_LocalLoadsInfo.resources
+E:\TJ\project\tengda\.codex-build\verify-output\ActiveControl.exe.config
+E:\TJ\project\tengda\.codex-build\verify-output\ActiveControl.exe.manifest
+E:\TJ\project\tengda\.codex-build\verify-output\ActiveControl.application
+E:\TJ\project\tengda\.codex-build\verify-output\ActiveControl.exe
+E:\TJ\project\tengda\.codex-build\verify-output\ActiveControl.pdb
+E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.exe.config

@@ -17,9 +17,16 @@ namespace ActiveControl
         public double MaxFC;           // 支撑极限受压承载力
         public double MaxFT;           // 支撑极限受拉承载力
         public bool AdjAble;           // 标记轴力是否可调
+        public double JackStrokeMax;   // 千斤顶累计行程上限，单位m
 
         // 构造函数
         public Support(string mat, double disttoground, double hrzdist, double size1, double size2, double maxfc, double maxft, bool adjbale)
+            : this(mat, disttoground, hrzdist, size1, size2, maxfc, maxft, adjbale, 200.0)
+        {
+        }
+
+        // 构造函数：界面和输入文件中的千斤顶行程单位为mm
+        public Support(string mat, double disttoground, double hrzdist, double size1, double size2, double maxfc, double maxft, bool adjbale, double jackstrokemax)
         {
             Mat = mat;
             DistToGround = disttoground;
@@ -29,6 +36,7 @@ namespace ActiveControl
             MaxFC = maxfc * 1e3;
             MaxFT = maxft * 1e3;
             AdjAble = adjbale;
+            JackStrokeMax = jackstrokemax * 1e-3;
         }
     }
 }
