@@ -401,4 +401,9 @@ E:\TJ\project\tengda\.codex-build\verify-output\ActiveControl.exe.manifest
 E:\TJ\project\tengda\.codex-build\verify-output\ActiveControl.application
 E:\TJ\project\tengda\.codex-build\verify-output\ActiveControl.exe
 E:\TJ\project\tengda\.codex-build\verify-output\ActiveControl.pdb
+E:\TJ\project\tengda\.codex-build\project-verify\ActiveControl.exe.config
+E:\TJ\project\tengda\.codex-build\project-verify\ActiveControl.exe.manifest
+E:\TJ\project\tengda\.codex-build\project-verify\ActiveControl.application
+E:\TJ\project\tengda\.codex-build\project-verify\ActiveControl.exe
+E:\TJ\project\tengda\.codex-build\project-verify\ActiveControl.pdb
 E:\TJ\project\tengda\tengda2026.2.5\ActiveControl\ActiveControl\obj\Debug\ActiveControl.exe.config

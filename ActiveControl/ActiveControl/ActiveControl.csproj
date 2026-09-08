@@ -113,6 +113,19 @@
     <Compile Include="Classes\FEM.cs" />
     <Compile Include="Classes\Loadcase.cs" />
     <Compile Include="Classes\LocalLoad.cs" />
+    <Compile Include="Classes\ProjectData.cs" />
+    <Compile Include="Forms\Form_Main.Project.cs">
+      <DependentUpon>Form_Main.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\Form_Main.Results.cs">
+      <DependentUpon>Form_Main.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\Form_Calculate.Project.cs">
+      <DependentUpon>Form_Calculate.cs</DependentUpon>
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Forms\Form_Calculate.cs">
       <SubType>Form</SubType>
     </Compile>

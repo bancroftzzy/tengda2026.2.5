@@ -1,0 +1,31 @@
+[33mcommit e3389cf088a9f41315933ffcc3c1711687af025a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: bancroftzzy <1605838971@qq.com>
+Date:   Mon Sep 7 12:03:45 2026 +0800
+
+    释放千斤顶端自由度，现在可以看到最优调节过程中的千斤顶行程变化，和最优千斤顶行程
+    
+    影响矩阵由支撑轴力变化单位力产生的影响变为由千斤顶单位行程变化产生影响，并且修改了输出窗口
+
+[33mcommit eb82e88ee017173709730159436e434bbc583c26[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;31mgitlab/main[m[33m, [m[1;31mgitlab/HEAD[m[33m)[m
+Author: bancroftzzy <1605838971@qq.com>
+Date:   Thu Jun 11 15:04:52 2026 +0800
+
+    实现了非线性土弹簧功能
+
+[33mcommit f035642535159711044439e4734725aae51e8d47[m
+Author: bancroftzzy <1605838971@qq.com>
+Date:   Wed Apr 22 18:40:34 2026 +0800
+
+    1.新增影响矩阵计算前输出文字；2.新增水土分合算功能
+
+[33mcommit 00578c9921d16972700299195b9c3d71bd119e5a[m
+Author: bancroftzzy <1605838971@qq.com>
+Date:   Tue Apr 7 14:12:04 2026 +0800
+
+    1.修正土层、支撑信息界面按钮尺寸；2.全局粒子群算法、分区粒子群算法初始粒子新增搜索次数上限1000；3.FEM.Check单位修正，新增终端输出信息；4.全局粒子群算法、分区粒子群算法最小调整轴力修改；5.FEM.Check约束位移方向为基坑方向
+
+[33mcommit cbcc5658a5add42a6e2ac58ec45a9d4056e5d5f6[m[33m ([m[1;31mgithub/main[m[33m, [m[1;31mgithub/HEAD[m[33m)[m
+Author: bancroftzzy <1605838971@qq.com>
+Date:   Wed Mar 11 21:24:03 2026 +0800
+
+    调试完成局部荷载，影响区域范围移至节点，修改等效节点荷载

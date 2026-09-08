@@ -36,236 +36,40 @@ namespace ActiveControl.Forms
             this.mf = mf;
             btnPause.Visible = false;
             btnContinue.Visible = false;
-            Init();
+            rbtDirect.Checked = true;
+            FormClosing += CalculationFormClosing;
         }
 
-        private void btnStartOnce_Click(object sender, EventArgs e)                 // 【按钮】逐次计算
+        private void btnStartOnce_Click(object sender, EventArgs e)
         {
-            if (Loadcase.CurLCNo < mf.Loadcases.Count())
-            {
-                if (rbtGlobalPSO.Checked == true)              // 全局粒子群算法
-                {
-                    mf.Calculate = new Thread(new ThreadStart(() =>
-                    {
-                        // 计算过程
-                        mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
-                        Construction();
-                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                        GlobalPSO();
-                        // 后处理
-                        CopyToSum();
-                        mf.UpdateDefChart();
-                    }));
-                    mf.Calculate.Start();
-                    mf.Calculate.IsBackground = true;
-                }
-                else if (rbtPartitionPSO.Checked == true)      // 分区粒子群算法
-                {
-                    mf.Calculate = new Thread(new ThreadStart(() =>
-                    {
-                        // 计算过程
-                        mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
-                        Construction();
-                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                        PartitionPSO();
-                        // 后处理
-                        CopyToSum();
-                        mf.UpdateDefChart();
-                    }));
-                    mf.Calculate.Start();
-                    mf.Calculate.IsBackground = true;
-                }
-                else if (rbtZeroDisp.Checked == true)          // 动态零位移法
-                {
-                    mf.Calculate = new Thread(new ThreadStart(() =>
-                    {
-                        // 计算过程
-                        mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
-                        Construction();
-                        ZeroDisp();
-                        // 后处理
-                        CopyToSum();
-                        mf.UpdateDefChart();
-                    }));
-                    mf.Calculate.Start();
-                    mf.Calculate.IsBackground = true;
-                }
-                else if (rbtManual.Checked == true)            // 手动输入轴力
-                {
-                    char[] deli = { '/' };
-                    string[] unit = tbForces.Text.Split(deli, StringSplitOptions.RemoveEmptyEntries);
-
-                    int tempAdjIndex;
-                    if (mf.Loadcases[Loadcase.CurLCNo].IsActiveSupport == true && mf.Supports[Loadcase.ActSupCount].AdjAble == true) 
-                        tempAdjIndex = Loadcase.AdjSupIndex.Count() + 1;
-                    else
-                        tempAdjIndex = Loadcase.AdjSupIndex.Count();
-
-                    Vector<double> ManualForce = Vector<double>.Build.Dense(tempAdjIndex);
-                    try
-                    {
-                        for (int i = 0; i < tempAdjIndex; i++)
-                        {
-                            if (unit[i] == "_") 
-                                ManualForce[i] = 1e12;
-                            else
-                                ManualForce[i] = Convert.ToDouble(unit[i]) * 1e3;
-                        }
-                        mf.Calculate = new Thread(new ThreadStart(() =>
-                        {
-                            // 计算过程
-                            mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
-                            Construction();
-                            Manual(ManualForce);
-                            // 后处理
-                            CopyToSum();
-                            mf.UpdateDefChart();
-                        }));
-                        mf.Calculate.Start();
-                        mf.Calculate.IsBackground = true;
-                    }
-                    catch
-                    {
-                        mf.PrintString("轴力输入有误，请检查！");
-                    }
-                    
-                }
-                else                                           // 直接计算
-                {
-                    // 缺省为直接计算
-                    rbtDirect.Checked = true;
-                    mf.Calculate = new Thread(new ThreadStart(() =>
-                    {
-                        // 计算过程
-                        mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
-                        Construction();
-                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                        // 后处理
-                        UpdateEnvData();
-                        CopyToSum();
-                        mf.UpdateDefChart();
-                        mf.PrintString("施工阶段 " + (Loadcase.CurLCNo).ToString("0") + " 计算完成！");
-                    }));
-                    mf.Calculate.Start();
-                    mf.Calculate.IsBackground = true;
-                }
-            }
-            else
-                mf.PrintString("已计算至最后一个施工阶段，无法继续！");
+            StartCalculation(false);
         }
-        private void btnStartAll_Click(object sender, EventArgs e)                  // 【按钮】全部计算
+
+        private void btnStartAll_Click(object sender, EventArgs e)
         {
-            btnStartAll.Visible = false;
-            btnPause.Visible = true;
-            if (rbtGlobalPSO.Checked == true)              // 全局粒子群算法
-            {
-                mf.Calculate = new Thread(new ThreadStart(() =>
-                {
-                    for (int i = Loadcase.CurLCNo; i < mf.Loadcases.Count(); i++)
-                    {
-                        // 计算过程
-                        mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
-                        Construction();
-                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                        GlobalPSO();
-                        // 后处理
-                        CopyToSum();
-                        mf.UpdateDefChart();
-                    }
-                }));
-                mf.Calculate.Start();
-                mf.Calculate.IsBackground = true;
-            }
-            else if (rbtPartitionPSO.Checked == true)      // 分区粒子群算法
-            {
-                mf.Calculate = new Thread(new ThreadStart(() =>
-                {
-                    for (int i = Loadcase.CurLCNo; i < mf.Loadcases.Count(); i++)
-                    {
-                        // 计算过程
-                        mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
-                        Construction();
-                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                        PartitionPSO();
-                        // 后处理
-                        CopyToSum();
-                        mf.UpdateDefChart();
-                    }
-                }));
-                mf.Calculate.Start();
-                mf.Calculate.IsBackground = true;
-            }
-            else if (rbtZeroDisp.Checked == true)          // 动态零位移法
-            {
-                mf.Calculate = new Thread(new ThreadStart(() =>
-                {
-                    for (int i = Loadcase.CurLCNo; i < mf.Loadcases.Count(); i++)
-                    {
-                        // 计算过程
-                        mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
-                        Construction();
-                        ZeroDisp();
-                        // 后处理
-                        CopyToSum();
-                        mf.UpdateDefChart();
-                    }
-                }));
-                mf.Calculate.Start();
-                mf.Calculate.IsBackground = true;
-            }
-            else if (rbtManual.Checked == true)            // 手动输入轴力
-            {
-                mf.PrintString("手动赋值不支持全部计算，请执行逐次计算或选择其他优化选项！");
-            }
-            else                                           // 直接计算
-            {
-                // 缺省为直接计算
-                rbtDirect.Checked = true;
-                mf.Calculate = new Thread(new ThreadStart(() =>
-                {
-                    for (int i = Loadcase.CurLCNo; i < mf.Loadcases.Count(); i++)
-                    {
-                        // 计算过程
-                        mf.PrintString("施工阶段 " + (Loadcase.CurLCNo + 1).ToString("0") + " 开始计算……");
-                        Construction();
-                        SolveWithMode(mf.Elements, ref mf.Nodes, Fs, ConstrainedDOFIndex, out Disp, out RForce);
-                        // 后处理
-                        UpdateEnvData();
-                        CopyToSum();
-                        mf.UpdateDefChart();
-                        mf.PrintString("施工阶段 " + (Loadcase.CurLCNo).ToString("0") + " 计算完成！");
-                    }
-                }));
-                mf.Calculate.Start();
-                mf.Calculate.IsBackground = true;
-            }
+            StartCalculation(true);
         }
 
         private void btnContinue_Click(object sender, EventArgs e)
         {
             mf.mre.Set();
-            mf.PrintString("继续计算……");
             btnContinue.Visible = false;
-            Thread.Sleep(1000);
             btnPause.Visible = true;
+            mf.PrintString("继续计算……");
         }
+
         private void btnPause_Click(object sender, EventArgs e)
         {
             mf.PrintString("计算暂停……");
-            btnPause.Visible = false;
-            Thread.Sleep(1000);
-            btnContinue.Visible = true;
             mf.mre.Reset();
+            btnPause.Visible = false;
+            btnContinue.Visible = true;
         }
+
         private void btnStop_Click(object sender, EventArgs e)
         {
-
-            if (mf.Calculate.ThreadState == (ThreadState.Background | ThreadState.WaitSleepJoin))
-                mf.mre.Set();
-            mf.PrintString("计算终止！");
-            btnContinue.Visible = false;
-            btnPause.Visible = false;
-            btnStartAll.Visible = true;
+            if (mf.Calculate == null || !mf.Calculate.IsAlive) return;
+            mf.mre.Set();
             mf.Calculate.Abort();
         }
 
@@ -1191,6 +995,16 @@ namespace ActiveControl.Forms
         }
         private void CopyToSum()                 // 将当前工况计算结果复制到 *Sum 数组
         {
+            // 浇筑顶板等阶段会新增单元，历史结果表随模型扩展，已有阶段数据保留。
+            if (mf.Elements.Count > mf.InistrnSum.RowCount)
+            {
+                var strain = Matrix<double>.Build.Dense(mf.Elements.Count, mf.Loadcases.Count);
+                var alive = Matrix<double>.Build.Dense(mf.Elements.Count, mf.Loadcases.Count);
+                strain.SetSubMatrix(0, 0, mf.InistrnSum);
+                alive.SetSubMatrix(0, 0, mf.AliveSum);
+                mf.InistrnSum = strain;
+                mf.AliveSum = alive;
+            }
             for (int i = 0; i < mf.Nodes.Count() * 3; i++)      // 导出位移数据
                 mf.DispSum[i, Loadcase.CurLCNo - 1] = Disp[i];
             for (int i = 0; i < mf.Elements.Count(); i++)       // 导出初应变数据
@@ -1243,6 +1057,7 @@ namespace ActiveControl.Forms
                             double.IsNaN(ForceMax[i]) || double.IsInfinity(ForceMax[i]) ||
                             double.IsNaN(ForceMin[i]) || double.IsInfinity(ForceMin[i]))
                         {
+                            stageAdjustmentSucceeded = false;
                             mf.PrintString("全局粒子群算法计算出现数值异常，请检查模型参数！");
                             return;
                         }
@@ -1373,6 +1188,7 @@ namespace ActiveControl.Forms
                     // 数值保护：检查是否成功找到可行解
                     if (!foundFeasible)
                     {
+                        stageAdjustmentSucceeded = false;
                         mf.PrintString($"警告：粒子 {iPt + 1} 在 {maxAttempts} 次尝试后未找到可行初始位置，算法终止！");
                         return;
                     }
@@ -1418,6 +1234,7 @@ namespace ActiveControl.Forms
                             // 数值保护：检查速度更新是否产生异常值
                             if (double.IsNaN(newVel) || double.IsInfinity(newVel))
                             {
+                                stageAdjustmentSucceeded = false;
                                 mf.PrintString("粒子群算法速度更新出现数值异常，算法终止！");
                                 return;
                             }
@@ -1435,6 +1252,7 @@ namespace ActiveControl.Forms
                             // 数值保护：检查位置更新是否产生异常值
                             if (double.IsNaN(newForce) || double.IsInfinity(newForce))
                             {
+                                stageAdjustmentSucceeded = false;
                                 mf.PrintString("粒子群算法位置更新出现数值异常，算法终止！");
                                 return;
                             }
@@ -1652,6 +1470,7 @@ namespace ActiveControl.Forms
                 }
                 else
                 {
+                    stageAdjustmentSucceeded = false;
                     mf.PrintString("施工阶段 " + (Loadcase.CurLCNo).ToString("0") + " 轴力主动调节失败，请检查输入。");
                 }
             }
@@ -1724,6 +1543,7 @@ namespace ActiveControl.Forms
                         double.IsNaN(ForceMax[i]) || double.IsInfinity(ForceMax[i]) ||
                         double.IsNaN(ForceMin[i]) || double.IsInfinity(ForceMin[i]))
                     {
+                        stageAdjustmentSucceeded = false;
                         mf.PrintString("分区粒子群算法计算出现数值异常，请检查模型参数！");
                         return;
                     }
@@ -2055,6 +1875,7 @@ namespace ActiveControl.Forms
                 }
                 else
                 {
+                    stageAdjustmentSucceeded = false;
                     mf.PrintString("施工阶段 " + (Loadcase.CurLCNo).ToString("0") + " 轴力主动调节失败，请检查输入。");
                 }
             }
@@ -2098,6 +1919,7 @@ namespace ActiveControl.Forms
 
                 if (Math.Abs(probeStroke) < 1.0e-12)
                 {
+                    stageAdjustmentSucceeded = false;
                     mf.PrintString($"动态零位移法失败：第{supportIndex + 1}根支撑没有可用千斤顶行程。");
                     return;
                 }
@@ -2128,6 +1950,7 @@ namespace ActiveControl.Forms
             }
             catch (Exception ex)
             {
+                stageAdjustmentSucceeded = false;
                 mf.PrintString("动态零位移法反算千斤顶行程失败：" + ex.Message);
                 return;
             }
@@ -2143,6 +1966,7 @@ namespace ActiveControl.Forms
                     JackStrokeCandidate[supportIndex] >
                     mf.Supports[supportIndex].JackStrokeMax + 1.0e-9)
                 {
+                    stageAdjustmentSucceeded = false;
                     mf.PrintString(
                         $"动态零位移法失败：第{supportIndex + 1}根支撑累计行程" +
                         $"{JackStrokeCandidate[supportIndex] * 1e3:F3}mm超出允许范围。");
@@ -2250,6 +2074,7 @@ namespace ActiveControl.Forms
                 ConstrainedDOFIndex, Force0, mf.JackStrokeCurrent,
                 out ManualJackStrokeCandidate, out Disp, out RForce))
             {
+                stageAdjustmentSucceeded = false;
                 mf.PrintString("手动轴力对应的千斤顶行程或结构内力不满足约束，未执行调节。");
                 return;
             }
